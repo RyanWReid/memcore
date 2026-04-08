@@ -24,7 +24,17 @@ Every memory system stores first and cleans up later. MemCore rejects garbage at
 | Hybrid search (FTS + vector) | Vector only | BM25 + cosine | Vector only | **RRF fusion** of tsvector + pgvector |
 | Self-hosted, single container | Cloud | Self-hosted | Cloud | **Docker Compose** |
 
-**LongMemEval benchmark:** 51% (v1) → 87% (v4) using DeepSeek ($0.14/MTok) — no expensive models required.
+**LongMemEval benchmark:** 51% (v1) → 87% (v3) → **95% (v4)** using DeepSeek ($0.14/MTok) — no expensive models required.
+
+### Benchmark Progression
+
+| Version | Score | Key Changes |
+|---------|-------|-------------|
+| v1 | 51.2% | Baseline — write gate + PostgreSQL hybrid search |
+| v3 | 87% | + fact extraction, Chain-of-Note, temporal expansion |
+| v4 | **95%** | + cross-encoder rerank, wider retrieval (50→20), lexical aliases |
+
+All versions use `deepseek-chat` (~$0.14/MTok) for every LLM call. No GPT-4, no Claude, no expensive models. The architecture does the heavy lifting.
 
 ## How It Works
 

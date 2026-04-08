@@ -1,0 +1,25 @@
+{
+  "benchmark": "LongMemEval-S",
+  "version": "v3",
+  "date": "2026-04-08",
+  "model": "deepseek-chat (DeepSeek V3.2)",
+  "embedding_model": "nomic-embed-text (384-dim)",
+  "config": {
+    "TOP_K": 30,
+    "RERANK_K": 10,
+    "reranker": "LLM-based (deepseek-chat)"
+  },
+  "features": [
+    "fact-extraction",
+    "chain-of-note",
+    "llm-rerank",
+    "temporal-expansion",
+    "dual-temporal-metadata"
+  ],
+  "results": {
+    "total_questions": 63,
+    "correct": 55,
+    "accuracy": 0.87,
+    "notes": "Partial run (63/500 questions). LLM reranking from 30→10 was too aggressive, causing regressions on some questions."
+  }
+}

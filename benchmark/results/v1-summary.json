@@ -1,0 +1,20 @@
+{
+  "benchmark": "LongMemEval-S",
+  "version": "v1",
+  "date": "2026-04-07",
+  "model": "deepseek-chat (DeepSeek V3.2)",
+  "embedding_model": "nomic-embed-text (384-dim)",
+  "config": {
+    "TOP_K": 10
+  },
+  "features": [
+    "epistemic-write-gate",
+    "hybrid-search-rrf"
+  ],
+  "results": {
+    "total_questions": 98,
+    "correct": 50,
+    "accuracy": 0.512,
+    "notes": "Baseline — raw session-level ingestion, no fact extraction, no temporal awareness"
+  }
+}

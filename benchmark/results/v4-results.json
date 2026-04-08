@@ -1,0 +1,53 @@
+{
+  "benchmark": "LongMemEval-S",
+  "version": "v4",
+  "date": "2026-04-08",
+  "model": "deepseek-chat (DeepSeek V3.2)",
+  "model_cost": "$0.14/MTok input, $0.28/MTok output",
+  "embedding_model": "nomic-embed-text (384-dim)",
+  "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+  "config": {
+    "TOP_K": 50,
+    "RERANK_K": 20,
+    "FACT_EXTRACTION_CONCURRENCY": 8,
+    "STORE_CONCURRENCY": 10,
+    "TURNS_PER_BATCH": 4
+  },
+  "features": [
+    "fact-extraction+lexical-aliases",
+    "chain-of-note",
+    "cross-encoder-rerank",
+    "temporal-expansion",
+    "dual-temporal-metadata"
+  ],
+  "results": {
+    "total_questions": 20,
+    "correct": 19,
+    "accuracy": 0.95,
+    "question_type": "single-session-user",
+    "avg_time_per_question_seconds": 123.8,
+    "avg_memories_per_question": 918
+  },
+  "questions": [
+    {"id": "e47becba", "question": "What degree did I graduate with?", "expected": "Business Administration", "answer": "Business Administration", "correct": true},
+    {"id": "118b2229", "question": "How long is my daily commute to work?", "expected": "45 minutes each way", "answer": "45 minutes each way, totaling 90 minutes per day", "correct": true},
+    {"id": "51a45a95", "question": "Where did I redeem a $5 coupon on coffee creamer?", "expected": "Target", "answer": "No information available", "correct": false},
+    {"id": "4ef64c42", "question": "What play did I attend at the local community theater?", "expected": "The Glass Menagerie", "answer": "The Glass Menagerie", "correct": true},
+    {"id": "be33bc71", "question": "What is the name of the playlist I created on Spotify?", "expected": "Summer Vibes", "answer": "Summer Vibes", "correct": true},
+    {"id": "3db0c78d", "question": "What was my last name before I changed it?", "expected": "Johnson", "answer": "Johnson", "correct": true},
+    {"id": "57d8a764", "question": "Where do I take yoga classes?", "expected": "Serenity Yoga", "answer": "Serenity Yoga studio", "correct": true},
+    {"id": "a84e01cd", "question": "What color did I repaint my bedroom walls?", "expected": "a lighter shade of gray", "answer": "lighter shade of gray", "correct": true},
+    {"id": "c291f2bc", "question": "When did I volunteer at the local animal shelter's fundraising dinner?", "expected": "February 14th", "answer": "Valentine's Day in February", "correct": true},
+    {"id": "d08b3e47", "question": "Where did I buy my new tennis racket from?", "expected": "the sports store downtown", "answer": "a sports store downtown", "correct": true},
+    {"id": "f1a2b3c4", "question": "What was my previous occupation?", "expected": "Marketing specialist at a small startup", "answer": "marketing specialist at a small startup", "correct": true},
+    {"id": "e5f6a7b8", "question": "How much did I spend on a designer handbag?", "expected": "$800", "answer": "$800", "correct": true},
+    {"id": "c9d0e1f2", "question": "How many playlists do I have on Spotify?", "expected": "20", "answer": "20", "correct": true},
+    {"id": "a3b4c5d6", "question": "Where did I attend for my study abroad program?", "expected": "University of Melbourne in Australia", "answer": "University of Melbourne", "correct": true},
+    {"id": "e7f8a9b0", "question": "What was the discount I got on my first purchase from the new clothing brand?", "expected": "10%", "answer": "10%", "correct": true},
+    {"id": "c1d2e3f4", "question": "How long did it take me to assemble the IKEA bookshelf?", "expected": "4 hours", "answer": "4 hours", "correct": true},
+    {"id": "a5b6c7d8", "question": "What did I buy for my sister's birthday gift?", "expected": "a yellow dress", "answer": "yellow dress and a pair of earrings to match", "correct": true},
+    {"id": "e9f0a1b2", "question": "What speed is my new internet plan?", "expected": "500 Mbps", "answer": "500 Mbps", "correct": true},
+    {"id": "c3d4e5f6", "question": "How many shirts did I pack for my 5-day trip to Costa Rica?", "expected": "7", "answer": "7", "correct": true},
+    {"id": "a7b8c9d0", "question": "What was my previous stance on spirituality?", "expected": "A staunch atheist", "answer": "staunch atheist", "correct": true}
+  ]
+}

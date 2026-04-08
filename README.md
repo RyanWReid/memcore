@@ -4,6 +4,12 @@
 
 Built for [Claude Code](https://claude.ai/code) and any MCP-compatible client.
 
+<p align="center">
+  <img src="docs/knowledge-graph.png" alt="MemCore knowledge graph — 2,314 nodes, 5,484 edges" width="800">
+  <br>
+  <em>Knowledge graph built automatically from memories — 2,314 entities, 5,484 relationships</em>
+</p>
+
 ---
 
 ## Why MemCore?

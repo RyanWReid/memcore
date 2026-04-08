@@ -4,15 +4,15 @@ import os
 
 
 # LiteLLM gateway
-LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://192.168.8.150:4000/v1")
-LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "sk-69415b996802d1a9fce35cad94e79a93")
+LITELLM_BASE_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:4000/v1")
+LITELLM_API_KEY = os.getenv("LITELLM_API_KEY", "")
 
 # Model for gate scoring (cheap, fast, reliable JSON)
 GATE_MODEL = os.getenv("GATE_MODEL", "deepseek-chat")
 
 # Storage backends
 GRAPHITI_URL = os.getenv("GRAPHITI_URL", "http://localhost:8000")
-LIGHTRAG_URL = os.getenv("LIGHTRAG_URL", "http://192.168.8.140:9622")
+LIGHTRAG_URL = os.getenv("LIGHTRAG_URL", "http://localhost:9622")
 POSTGRES_URL = os.getenv(
     "POSTGRES_URL",
     "postgresql://memcore:memcore@localhost:5432/memcore",
@@ -23,7 +23,7 @@ GATE_THRESHOLD = float(os.getenv("GATE_THRESHOLD", "0.55"))
 QUALITY_CHECK_STRICT = os.getenv("QUALITY_CHECK_STRICT", "false").lower() == "true"
 
 # Embeddings
-EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://192.168.8.141:8100/v1/embeddings")
+EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8100/v1/embeddings")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "384"))
 

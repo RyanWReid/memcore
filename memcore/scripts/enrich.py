@@ -6,16 +6,17 @@ then does a bulk SQL UPDATE via a single SQL file pushed through the SSH chain.
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
 import httpx
 
-MEMCORE_URL = "http://192.168.8.141:8020"
-LITELLM_URL = "http://192.168.8.150:4000/v1"
-LITELLM_KEY = "sk-69415b996802d1a9fce35cad94e79a93"
-EMBEDDING_URL = "http://192.168.8.141:8100/v1/embeddings"
-MODEL = "deepseek-chat"
+MEMCORE_URL = os.environ.get("MEMCORE_URL", "http://localhost:8020")
+LITELLM_URL = os.environ.get("LITELLM_BASE_URL", "http://localhost:4000/v1")
+LITELLM_KEY = os.environ.get("LITELLM_API_KEY", "")
+EMBEDDING_URL = os.environ.get("EMBEDDING_URL", "http://localhost:8100/v1/embeddings")
+MODEL = os.environ.get("GATE_MODEL", "deepseek-chat")
 
 
 def get_all_memories() -> list[dict]:
@@ -174,16 +175,18 @@ def main():
         f.write("\n".join(sql_statements))
 
     print(f"\nApplying {enriched} updates...")
-    cmds = [
-        f"scp {sql_file} root@192.168.8.10:/tmp/enrich_memories.sql",
-        "ssh root@192.168.8.10 'scp /tmp/enrich_memories.sql root@192.168.8.11:/tmp/enrich_memories.sql'",
-        "ssh root@192.168.8.10 \"ssh root@192.168.8.11 'pct push 141 /tmp/enrich_memories.sql /tmp/enrich_memories.sql && pct exec 141 -- docker cp /tmp/enrich_memories.sql memcore-memcore-db-1:/tmp/enrich_memories.sql && pct exec 141 -- docker exec memcore-memcore-db-1 psql -U memcore -d memcore -f /tmp/enrich_memories.sql'\"",
-    ]
-
-    for cmd in cmds:
+    # Execute SQL against the database. Adjust the command for your deployment:
+    # - Docker: docker exec memcore-db psql -U memcore -d memcore -f /tmp/enrich.sql
+    # - Direct: psql -U memcore -d memcore -f /tmp/enrich.sql
+    db_cmd = os.environ.get(
+        "ENRICH_DB_CMD",
+        f"docker exec memcore-memcore-db-1 psql -U memcore -d memcore -f /tmp/enrich_memories.sql",
+    )
+    # Copy SQL file into container if using Docker
+    copy_cmd = f"docker cp {sql_file} memcore-memcore-db-1:/tmp/enrich_memories.sql"
+    for cmd in [copy_cmd, db_cmd]:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
         if "UPDATE" in result.stdout:
-            # Count successful updates
             updates = result.stdout.count("UPDATE 1")
             print(f"Applied {updates} updates to database")
 

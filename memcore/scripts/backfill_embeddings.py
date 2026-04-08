@@ -13,7 +13,7 @@ import asyncpg
 import httpx
 
 POSTGRES_URL = os.getenv("POSTGRES_URL", "postgresql://memcore:memcore@memcore-db:5432/memcore")
-EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://192.168.8.141:8100/v1/embeddings")
+EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8100/v1/embeddings")
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
 BATCH_SIZE = 20  # Embed 20 at a time
 

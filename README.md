@@ -13,6 +13,12 @@ Every AI memory system today is a database you search. Store text, embed it, ret
 
 MemCore scores quality *before* writing (epistemic write gate), tracks *how* memories are used (Ebbinghaus stability), tells the LLM *how much to trust* what it found (metamemory), and forgets *what isn't needed* (per-type decay). Built for multi-agent systems where multiple AI sessions share a common memory across devices.
 
+<p align="center">
+  <img src="docs/knowledge-graph.png" alt="MemCore knowledge graph — 2,314 nodes, 5,484 edges" width="800">
+  <br>
+  <em>Knowledge graph built automatically from memories — 2,314 entities, 5,484 relationships</em>
+</p>
+
 ---
 
 ## What Makes MemCore Different

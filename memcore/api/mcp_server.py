@@ -17,7 +17,7 @@ from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from starlette.responses import JSONResponse
 
-from memcore.config import GATE_THRESHOLD, FACT_EXTRACTION_ENABLED, MCP_HOST, MCP_PORT
+from memcore.config import GATE_THRESHOLD, FACT_EXTRACTION_ENABLED
 from memcore.gate.write_gate import evaluate
 from memcore.gate.fact_extractor import extract_facts
 from memcore.storage import router
@@ -239,16 +239,32 @@ async def _handle_recall(args: dict) -> list[TextContent]:
     layers = args.get("layers")
     limit = args.get("limit", 10)
 
-    results = await router.recall(
+    # If specific layers requested, use the old per-layer response
+    if layers:
+        results = await router.recall(
+            query=query,
+            group_id=group_id,
+            layers=layers,
+            limit=limit,
+        )
+        return [TextContent(
+            type="text",
+            text=json.dumps(results, indent=2, default=str),
+        )]
+
+    # Default: fused recall (postgres + graphiti merged into single ranked list)
+    fused, confidence = await router.recall_fused(
         query=query,
         group_id=group_id,
-        layers=layers,
         limit=limit,
     )
-
     return [TextContent(
         type="text",
-        text=json.dumps(results, indent=2, default=str),
+        text=json.dumps({
+            "results": fused,
+            "count": len(fused),
+            "confidence": confidence,
+        }, indent=2, default=str),
     )]
 
 
@@ -273,20 +289,33 @@ async def health(request):
 
 
 async def api_recall(request):
-    """REST endpoint for recall. POST {"query": "...", "group_id": "homelab", "limit": 10}"""
+    """REST endpoint for recall. POST {"query": "...", "group_id": "homelab", "limit": 10}
+
+    Default: fused recall (postgres + graphiti merged).
+    Pass "layers" to use per-layer response instead.
+    """
     body = await request.json()
     query = body.get("query", "")
     if not query:
         return JSONResponse({"error": "query required"}, status_code=400)
 
-    results = await router.recall(
-        query=query,
-        group_id=body.get("group_id", "homelab"),
-        layers=body.get("layers"),
-        limit=body.get("limit", 5),
-    )
-    # Serialize datetimes
-    serializable = json.loads(json.dumps(results, default=str))
+    layers = body.get("layers")
+    group_id = body.get("group_id", "homelab")
+    limit = body.get("limit", 5)
+
+    if layers:
+        # Explicit layers requested — per-layer response (backward compat)
+        results = await router.recall(
+            query=query, group_id=group_id, layers=layers, limit=limit,
+        )
+        serializable = json.loads(json.dumps(results, default=str))
+        return JSONResponse(serializable, status_code=200)
+
+    # Default: fused recall with metamemory confidence
+    fused, confidence = await router.recall_fused(query=query, group_id=group_id, limit=limit)
+    serializable = json.loads(json.dumps({
+        "results": fused, "count": len(fused), "confidence": confidence,
+    }, default=str))
     return JSONResponse(serializable, status_code=200)
 
 

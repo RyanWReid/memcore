@@ -2,12 +2,16 @@
 
 Uses asyncpg for async access. pgvector for semantic search.
 Hybrid retrieval: tsvector full-text + pgvector cosine similarity + RRF fusion.
+Bio-inspired: Ebbinghaus retention scoring, access tracking, stability growth.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import math
+from datetime import datetime, timezone
 from typing import Optional
 
 import asyncpg
@@ -72,12 +76,19 @@ async def get_pool() -> asyncpg.Pool:
             for col_sql in [
                 f"ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS embedding vector({EMBEDDING_DIM})",
                 "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS search_vector tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED",
+                # Bio-inspired: access tracking + Ebbinghaus stability
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS access_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS last_accessed_at TIMESTAMPTZ",
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS stability REAL NOT NULL DEFAULT 1.0",
+                # v6 prep: reconsolidation + arousal
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS reconsolidation_count INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS arousal_score REAL",
             ]:
                 try:
                     await conn.execute(col_sql)
                 except Exception:
                     pass  # Column already exists or generated column can't be added via ALTER
-        logger.info("PostgreSQL pool created, schema initialized with pgvector")
+        logger.info("PostgreSQL pool created, schema initialized with pgvector + access tracking")
     return _pool
 
 
@@ -253,7 +264,112 @@ async def search(
     else:
         results = results[:limit]
 
+    # Apply Ebbinghaus retention scoring as a post-rerank adjustment
+    results = _apply_retention_scoring(results)
+
+    # Track access for returned results (fire-and-forget)
+    if results:
+        result_ids = [r["id"] for r in results if r.get("id")]
+        if result_ids:
+            asyncio.get_event_loop().create_task(
+                _record_access(result_ids)
+            )
+
     return results
+
+
+# --- Ebbinghaus retention scoring ---
+
+# Per-type decay lambdas — decisions are permanent, goals decay fast
+_TYPE_LAMBDAS = {
+    "decision": 0.0,       # permanent — decisions don't decay
+    "relationship": 0.0,   # permanent
+    "fact": 0.01,          # ~70 day half-life at stability=1
+    "event": 0.02,         # ~35 day half-life at stability=1
+    "document": 0.005,     # ~140 day half-life at stability=1
+    "goal": 0.05,          # ~14 day half-life at stability=1
+}
+
+
+def _apply_retention_scoring(results: list[dict]) -> list[dict]:
+    """Apply Ebbinghaus retention as a multiplier on existing scores.
+
+    R = e^(-lambda * days_since_access / stability)
+    - Each access increases stability by 1.3x
+    - Decisions are exempt from decay (lambda=0)
+    - Floor of 0.3 so old memories don't vanish entirely
+    """
+    now = datetime.now(timezone.utc)
+
+    for r in results:
+        # Get the memory's stability and last access time
+        stability = float(r.get("stability", 1.0)) or 1.0
+        last_accessed = r.get("last_accessed_at")
+        created_at = r.get("created_at")
+        memory_type = r.get("memory_type", "fact")
+
+        # Use last_accessed_at if available, otherwise created_at
+        reference_time = last_accessed or created_at
+        if reference_time is None:
+            r["retention"] = 1.0
+            continue
+
+        # Handle string dates
+        if isinstance(reference_time, str):
+            try:
+                reference_time = datetime.fromisoformat(reference_time.replace("Z", "+00:00"))
+            except (ValueError, TypeError):
+                r["retention"] = 1.0
+                continue
+
+        # Make timezone-aware if needed
+        if reference_time.tzinfo is None:
+            reference_time = reference_time.replace(tzinfo=timezone.utc)
+
+        days_since = max((now - reference_time).total_seconds() / 86400, 0)
+        lam = _TYPE_LAMBDAS.get(memory_type, 0.01)
+
+        # Memories less than 1 day old: retention = 1.0 (no effect).
+        # Prevents micro-reordering noise on freshly-ingested data where
+        # seconds-apart timestamps create meaningless retention differences.
+        if lam == 0 or days_since < 1.0:
+            retention = 1.0
+        else:
+            retention = max(math.exp(-lam * days_since / stability), 0.3)
+
+        r["retention"] = round(retention, 4)
+
+        # Adjust the score — blend retention into existing score
+        # 85% retrieval relevance + 15% retention (don't let decay dominate)
+        base_score = float(r.get("blended_score", 0) or r.get("rrf_score", 0))
+        if base_score > 0:
+            r["final_score"] = round(0.85 * base_score + 0.15 * retention * base_score, 4)
+        else:
+            r["final_score"] = base_score
+
+    # Re-sort by final_score
+    results.sort(key=lambda x: x.get("final_score", 0), reverse=True)
+    return results
+
+
+async def _record_access(memory_ids: list[str]):
+    """Increment access_count and stability for recalled memories.
+
+    Stability grows by 1.3x per access (Ebbinghaus spacing effect).
+    Capped at 200 to prevent overflow.
+    """
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE mem_entries
+                SET access_count = access_count + 1,
+                    last_accessed_at = NOW(),
+                    stability = LEAST(stability * 1.3, 200.0)
+                WHERE id = ANY($1::text[])
+            """, memory_ids)
+    except Exception as e:
+        logger.warning("Failed to record access: %s", e)
 
 
 async def _hybrid_search(
@@ -278,6 +394,7 @@ async def _hybrid_search(
     sql = f"""
     WITH fts AS (
         SELECT id, content, memory_type, epistemic_score, created_at,
+               access_count, last_accessed_at, stability,
                ROW_NUMBER() OVER (ORDER BY ts_rank(search_vector, websearch_to_tsquery('english', $1)) DESC) as rank_pos
         FROM mem_entries
         WHERE status = 'active' AND group_id = $2
@@ -288,6 +405,7 @@ async def _hybrid_search(
     ),
     vec AS (
         SELECT id, content, memory_type, epistemic_score, created_at,
+               access_count, last_accessed_at, stability,
                ROW_NUMBER() OVER (ORDER BY embedding <=> $3::vector) as rank_pos
         FROM mem_entries
         WHERE status = 'active' AND group_id = $2
@@ -303,13 +421,17 @@ async def _hybrid_search(
             COALESCE(fts.memory_type, vec.memory_type) as memory_type,
             COALESCE(fts.epistemic_score, vec.epistemic_score) as epistemic_score,
             COALESCE(fts.created_at, vec.created_at) as created_at,
+            COALESCE(fts.access_count, vec.access_count) as access_count,
+            COALESCE(fts.last_accessed_at, vec.last_accessed_at) as last_accessed_at,
+            COALESCE(fts.stability, vec.stability) as stability,
             -- RRF score: 1/(K+rank) for each leg, sum both
             COALESCE(1.0 / ({K} + fts.rank_pos), 0) +
             COALESCE(1.0 / ({K} + vec.rank_pos), 0) as rrf_score
         FROM fts
         FULL OUTER JOIN vec ON fts.id = vec.id
     )
-    SELECT id, content, memory_type, epistemic_score, created_at, rrf_score
+    SELECT id, content, memory_type, epistemic_score, created_at,
+           access_count, last_accessed_at, stability, rrf_score
     FROM combined
     ORDER BY rrf_score DESC
     LIMIT ${ '4' if memory_type else '3' }

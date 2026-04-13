@@ -27,9 +27,9 @@ from datetime import datetime, timedelta
 
 import httpx
 
-MEMCORE_URL = os.environ.get("MEMCORE_URL", "http://localhost:8020")
-LITELLM_URL = os.environ.get("LITELLM_BASE_URL", "http://localhost:4000/v1")
-LITELLM_KEY = os.environ.get("LITELLM_API_KEY", "")
+MEMCORE_URL = "http://localhost:8020"
+LITELLM_URL = "http://localhost:4000/v1"
+LITELLM_KEY = ""
 MODEL = "deepseek-chat"  # single model for everything
 
 DATA_FILE = os.path.join(os.path.dirname(__file__), "longmemeval_s_cleaned.json")
@@ -434,9 +434,13 @@ async def recall_memories(client: httpx.AsyncClient, question_id: str,
                 },
                 timeout=60,
             )
-            for r in resp.json().get("postgres", []):
-                if r["id"] not in seen_ids:
-                    seen_ids.add(r["id"])
+            data = resp.json()
+            # Support both fused response {"results": [...]} and legacy {"postgres": [...]}
+            results_list = data.get("results") or data.get("postgres", [])
+            for r in results_list:
+                rid = r.get("id", "")
+                if rid and rid not in seen_ids:
+                    seen_ids.add(rid)
                     all_results.append(r)
         except Exception:
             pass

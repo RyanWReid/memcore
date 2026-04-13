@@ -20,7 +20,7 @@ class MemoryType(str, Enum):
     EVENT = "event"  # timestamped incidents, deployments, milestones → Graphiti
     DECISION = "decision"  # architectural choices with rationale → Graphiti
     RELATIONSHIP = "relationship"  # entity connections, dependencies → Graphiti
-    DOCUMENT = "document"  # long-form content, specs, logs → LightRAG
+    DOCUMENT = "document"  # long-form content, specs, logs → PostgreSQL
     GOAL = "goal"  # current objectives, priorities → PostgreSQL
     TRAJECTORY = "trajectory"  # tool call sequences + outcomes → PostgreSQL
 
@@ -29,7 +29,6 @@ class StorageLayer(str, Enum):
     """Target storage backend."""
 
     GRAPHITI = "graphiti"
-    LIGHTRAG = "lightrag"
     POSTGRES = "postgres"
 
 
@@ -46,7 +45,7 @@ TYPE_TO_LAYER: dict[MemoryType, StorageLayer] = {
     MemoryType.EVENT: StorageLayer.GRAPHITI,
     MemoryType.DECISION: StorageLayer.GRAPHITI,
     MemoryType.RELATIONSHIP: StorageLayer.GRAPHITI,
-    MemoryType.DOCUMENT: StorageLayer.LIGHTRAG,
+    MemoryType.DOCUMENT: StorageLayer.POSTGRES,
     MemoryType.GOAL: StorageLayer.POSTGRES,
     MemoryType.TRAJECTORY: StorageLayer.POSTGRES,
 }

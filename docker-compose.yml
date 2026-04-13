@@ -1,24 +1,25 @@
 services:
   memcore:
-    build: ./memcore
+    build: .
     restart: unless-stopped
     ports:
       - "8020:8020"
     environment:
-      - LITELLM_BASE_URL=${LITELLM_BASE_URL:-http://localhost:4000/v1}
-      - LITELLM_API_KEY=${LITELLM_API_KEY:-changeme}
-      - GATE_MODEL=${GATE_MODEL:-deepseek-chat}
-      - GRAPHITI_URL=${GRAPHITI_URL:-http://localhost:8000}
+      - LITELLM_BASE_URL=http://192.168.8.150:4000/v1
+      - LITELLM_API_KEY=sk-69415b996802d1a9fce35cad94e79a93
+      - GATE_MODEL=deepseek-chat
+      - GRAPHITI_URL=http://192.168.8.141:8000
+      - LIGHTRAG_URL=http://192.168.8.140:9622
       - POSTGRES_URL=postgresql://memcore:memcore@memcore-db:5432/memcore
-      - GATE_THRESHOLD=${GATE_THRESHOLD:-0.55}
+      - GATE_THRESHOLD=0.55
       - MCP_PORT=8020
-      - EMBEDDING_URL=${EMBEDDING_URL:-http://localhost:8100/v1/embeddings}
-      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-nomic-embed-text}
-      - EMBEDDING_DIM=${EMBEDDING_DIM:-384}
-      - RERANKER_ENABLED=${RERANKER_ENABLED:-true}
-      - RERANKER_MODEL=${RERANKER_MODEL:-cross-encoder/ms-marco-MiniLM-L-6-v2}
-      - FACT_EXTRACTION_ENABLED=${FACT_EXTRACTION_ENABLED:-true}
-      - GRAPHITI_RECALL_TIMEOUT=${GRAPHITI_RECALL_TIMEOUT:-10.0}
+      - EMBEDDING_URL=http://192.168.8.141:8100/v1/embeddings
+      - EMBEDDING_MODEL=nomic-embed-text
+      - EMBEDDING_DIM=384
+      - RERANKER_ENABLED=true
+      - RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+      - FACT_EXTRACTION_ENABLED=true
+      - GRAPHITI_RECALL_TIMEOUT=10.0
     volumes:
       - reranker-cache:/app/.cache/huggingface
     depends_on:

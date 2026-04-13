@@ -12,15 +12,13 @@ GATE_MODEL = os.getenv("GATE_MODEL", "deepseek-chat")
 
 # Storage backends
 GRAPHITI_URL = os.getenv("GRAPHITI_URL", "http://localhost:8000")
-LIGHTRAG_URL = os.getenv("LIGHTRAG_URL", "http://localhost:9622")
 POSTGRES_URL = os.getenv(
     "POSTGRES_URL",
-    "postgresql://memcore:memcore@localhost:5432/memcore",
+    "postgresql://memcore:memcore@memcore-db:5432/memcore",
 )
 
 # Write gate
 GATE_THRESHOLD = float(os.getenv("GATE_THRESHOLD", "0.55"))
-QUALITY_CHECK_STRICT = os.getenv("QUALITY_CHECK_STRICT", "false").lower() == "true"
 
 # Embeddings
 EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8100/v1/embeddings")

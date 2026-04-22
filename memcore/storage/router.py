@@ -265,10 +265,30 @@ async def recall_fused(
     # Compute metamemory confidence signal
     confidence = compute_recall_confidence(query, combined)
 
+    # Check prospective memory — surface intents whose triggers match this query
+    try:
+        from memcore.lifecycle.prospective import check_intents
+        intents = await check_intents(query, group_id=group_id)
+        if intents:
+            # Prepend triggered intents to results (highest priority)
+            combined = intents + combined
+            confidence["intents_triggered"] = len(intents)
+    except Exception as e:
+        logger.debug("Prospective memory check failed: %s", e)
+
     logger.info(
         "Fused recall: %d postgres + %d graphiti → %d combined (limit %d, confidence=%s)",
         len(pg_results), len(gr_results), len(combined), limit, confidence["level"],
     )
+
+    # Fire-and-forget reconsolidation for top memories (skip intents)
+    from memcore.config import RECONSOLIDATION_ENABLED
+    if RECONSOLIDATION_ENABLED and combined:
+        from memcore.lifecycle.reconsolidation import trigger_reconsolidation
+        recon_candidates = [m for m in combined[:5] if m.get("memory_type") != "intent"]
+        if recon_candidates:
+            asyncio.create_task(trigger_reconsolidation(recon_candidates[:3], query, confidence))
+
     return combined, confidence
 
 

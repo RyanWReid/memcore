@@ -88,6 +88,25 @@ async def get_pool() -> asyncpg.Pool:
                     await conn.execute(col_sql)
                 except Exception:
                     pass  # Column already exists or generated column can't be added via ALTER
+            # v6: Prospective memory (intents) table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS mem_intents (
+                    id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+                    content TEXT NOT NULL,
+                    trigger_condition TEXT NOT NULL,
+                    trigger_embedding vector(384),
+                    group_id TEXT NOT NULL DEFAULT 'homelab',
+                    trigger_time TIMESTAMPTZ,
+                    expiry_hours INTEGER DEFAULT 168,
+                    status TEXT DEFAULT 'active',
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ
+                )
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_intents_active
+                ON mem_intents (group_id, status) WHERE status = 'active'
+            """)
         logger.info("PostgreSQL pool created, schema initialized with pgvector + access tracking")
     return _pool
 
@@ -393,8 +412,8 @@ async def _hybrid_search(
 
     sql = f"""
     WITH fts AS (
-        SELECT id, content, memory_type, epistemic_score, created_at,
-               access_count, last_accessed_at, stability,
+        SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
+               access_count, last_accessed_at, stability, reconsolidation_count,
                ROW_NUMBER() OVER (ORDER BY ts_rank(search_vector, websearch_to_tsquery('english', $1)) DESC) as rank_pos
         FROM mem_entries
         WHERE status = 'active' AND group_id = $2
@@ -404,8 +423,8 @@ async def _hybrid_search(
         LIMIT 30
     ),
     vec AS (
-        SELECT id, content, memory_type, epistemic_score, created_at,
-               access_count, last_accessed_at, stability,
+        SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
+               access_count, last_accessed_at, stability, reconsolidation_count,
                ROW_NUMBER() OVER (ORDER BY embedding <=> $3::vector) as rank_pos
         FROM mem_entries
         WHERE status = 'active' AND group_id = $2
@@ -421,17 +440,19 @@ async def _hybrid_search(
             COALESCE(fts.memory_type, vec.memory_type) as memory_type,
             COALESCE(fts.epistemic_score, vec.epistemic_score) as epistemic_score,
             COALESCE(fts.created_at, vec.created_at) as created_at,
+            COALESCE(fts.updated_at, vec.updated_at) as updated_at,
             COALESCE(fts.access_count, vec.access_count) as access_count,
             COALESCE(fts.last_accessed_at, vec.last_accessed_at) as last_accessed_at,
             COALESCE(fts.stability, vec.stability) as stability,
+            COALESCE(fts.reconsolidation_count, vec.reconsolidation_count) as reconsolidation_count,
             -- RRF score: 1/(K+rank) for each leg, sum both
             COALESCE(1.0 / ({K} + fts.rank_pos), 0) +
             COALESCE(1.0 / ({K} + vec.rank_pos), 0) as rrf_score
         FROM fts
         FULL OUTER JOIN vec ON fts.id = vec.id
     )
-    SELECT id, content, memory_type, epistemic_score, created_at,
-           access_count, last_accessed_at, stability, rrf_score
+    SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
+           access_count, last_accessed_at, stability, reconsolidation_count, rrf_score
     FROM combined
     ORDER BY rrf_score DESC
     LIMIT ${ '4' if memory_type else '3' }
@@ -486,7 +507,8 @@ async def _keyword_search(
     params.append(limit)
 
     sql = f"""
-        SELECT id, content, memory_type, epistemic_score, created_at
+        SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
+               access_count, last_accessed_at, stability, reconsolidation_count
         FROM mem_entries
         WHERE {' AND '.join(conditions)}
         ORDER BY epistemic_score DESC, created_at DESC

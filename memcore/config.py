@@ -35,6 +35,12 @@ FACT_EXTRACTION_ENABLED = os.getenv("FACT_EXTRACTION_ENABLED", "true").lower() =
 # Graphiti recall timeout (fast path — don't block recall for slow graph search)
 GRAPHITI_RECALL_TIMEOUT = float(os.getenv("GRAPHITI_RECALL_TIMEOUT", "10.0"))
 
+# Reconsolidation (v6)
+RECONSOLIDATION_ENABLED = os.getenv("RECONSOLIDATION_ENABLED", "true").lower() == "true"
+RECONSOLIDATION_MIN_ACCESS = int(os.getenv("RECONSOLIDATION_MIN_ACCESS", "3"))
+RECONSOLIDATION_MAX_COUNT = int(os.getenv("RECONSOLIDATION_MAX_COUNT", "5"))
+RECONSOLIDATION_COOLDOWN_HOURS = int(os.getenv("RECONSOLIDATION_COOLDOWN_HOURS", "24"))
+
 # MCP server
 MCP_PORT = int(os.getenv("MCP_PORT", "8020"))
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")

@@ -131,6 +131,48 @@ async def list_tools() -> list[Tool]:
                 },
             },
         ),
+        Tool(
+            name="intent",
+            description=(
+                "Store a prospective memory — remember to do something when a condition is met. "
+                "Example: intent(content='Check if DNS resolved', trigger='after DNS reboot'). "
+                "Intents auto-surface during recall when their trigger matches the current context."
+            ),
+            inputSchema={
+                "type": "object",
+                "required": ["content", "trigger"],
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "What to remember/surface when triggered.",
+                    },
+                    "trigger": {
+                        "type": "string",
+                        "description": "Natural language trigger condition (e.g., 'when deploying to CT 100', 'after next reboot').",
+                    },
+                    "group_id": {
+                        "type": "string",
+                        "description": "Memory namespace.",
+                        "enum": ["homelab", "personal"],
+                        "default": "homelab",
+                    },
+                },
+            },
+        ),
+        Tool(
+            name="complete_intent",
+            description="Mark a prospective memory intent as completed/acknowledged.",
+            inputSchema={
+                "type": "object",
+                "required": ["intent_id"],
+                "properties": {
+                    "intent_id": {
+                        "type": "string",
+                        "description": "UUID of the intent to complete.",
+                    },
+                },
+            },
+        ),
     ]
 
 
@@ -144,6 +186,10 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         return await _handle_forget(arguments)
     elif name == "audit":
         return await _handle_audit(arguments)
+    elif name == "intent":
+        return await _handle_intent(arguments)
+    elif name == "complete_intent":
+        return await _handle_complete_intent(arguments)
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -280,6 +326,22 @@ async def _handle_audit(args: dict) -> list[TextContent]:
     if entry is None:
         return [TextContent(type="text", text=json.dumps({"error": "not found"}))]
     return [TextContent(type="text", text=json.dumps(entry, indent=2, default=str))]
+
+
+async def _handle_intent(args: dict) -> list[TextContent]:
+    from memcore.lifecycle.prospective import store_intent
+    result = await store_intent(
+        content=args["content"],
+        trigger_condition=args["trigger"],
+        group_id=args.get("group_id", "homelab"),
+    )
+    return [TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
+
+
+async def _handle_complete_intent(args: dict) -> list[TextContent]:
+    from memcore.lifecycle.prospective import complete_intent
+    result = await complete_intent(args["intent_id"])
+    return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
 
 # --- REST API endpoints (for hooks, curl, n8n — no MCP overhead) ---
@@ -451,6 +513,21 @@ def create_app() -> Starlette:
                 read_stream, write_stream, server.create_initialization_options()
             )
 
+    async def api_intent(request):
+        """REST endpoint for prospective memory. POST {"content": "...", "trigger": "..."}"""
+        body = await request.json()
+        content = body.get("content", "")
+        trigger = body.get("trigger", "")
+        if not content or not trigger:
+            return JSONResponse({"error": "content and trigger required"}, status_code=400)
+        from memcore.lifecycle.prospective import store_intent
+        result = await store_intent(
+            content=content,
+            trigger_condition=trigger,
+            group_id=body.get("group_id", "homelab"),
+        )
+        return JSONResponse(json.loads(json.dumps(result, default=str)), status_code=200)
+
     app = Starlette(
         routes=[
             Route("/health", health),
@@ -459,6 +536,7 @@ def create_app() -> Starlette:
             Route("/api/forget", api_forget, methods=["POST"]),
             Route("/api/ingest", api_ingest, methods=["POST"]),
             Route("/api/clear_group", api_clear_group, methods=["POST"]),
+            Route("/api/intent", api_intent, methods=["POST"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],

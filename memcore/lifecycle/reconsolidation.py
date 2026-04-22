@@ -162,11 +162,24 @@ async def maybe_reconsolidate(
         logger.warning("Reconsolidation embedding failed for %s", memory_id)
         return False
 
+    # Compute content drift from original (imagination inflation defense)
+    drift = _compute_surprise(
+        await generate_embedding(content[:500]) or [],
+        new_embedding,
+    ) if recon_count > 0 else 0.0
+
+    if drift > 0.4:
+        logger.warning(
+            "Reconsolidation drift too high for %s (%.2f), skipping to prevent corruption",
+            memory_id, drift,
+        )
+        return False
+
     # Persist the enriched memory
-    await _persist_reconsolidation(memory_id, new_content, new_embedding, recon_count)
+    await _persist_reconsolidation(memory_id, new_content, new_embedding, recon_count, content, drift)
     logger.info(
-        "Reconsolidated memory %s (access=%d, recon=%d→%d): +%d chars",
-        memory_id, access_count, recon_count, recon_count + 1,
+        "Reconsolidated memory %s (access=%d, recon=%d→%d, drift=%.2f): +%d chars",
+        memory_id, access_count, recon_count, recon_count + 1, drift,
         len(new_content) - len(content),
     )
     return True
@@ -177,23 +190,41 @@ async def _persist_reconsolidation(
     new_content: str,
     new_embedding: list[float],
     current_recon_count: int,
+    original_content: str,
+    content_drift: float,
 ):
     """Update the memory in PostgreSQL with enriched content.
 
-    Uses optimistic locking via reconsolidation_count to prevent double-writes
-    from concurrent reconsolidation attempts.
+    Uses optimistic locking via reconsolidation_count to prevent double-writes.
+    Freezes original_content on first reconsolidation (imagination inflation defense).
+    Tracks content_drift from original.
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        result = await conn.execute("""
-            UPDATE mem_entries
-            SET content = $1,
-                embedding = $2::vector,
-                reconsolidation_count = $3,
-                updated_at = NOW()
-            WHERE id = $4 AND reconsolidation_count = $5
-        """, new_content, str(new_embedding), current_recon_count + 1,
-             memory_id, current_recon_count)
+        if current_recon_count == 0:
+            # First reconsolidation: freeze the original content
+            result = await conn.execute("""
+                UPDATE mem_entries
+                SET content = $1,
+                    embedding = $2::vector,
+                    reconsolidation_count = $3,
+                    original_content = COALESCE(original_content, content),
+                    content_drift = $6,
+                    updated_at = NOW()
+                WHERE id = $4 AND reconsolidation_count = $5
+            """, new_content, str(new_embedding), current_recon_count + 1,
+                 memory_id, current_recon_count, content_drift)
+        else:
+            result = await conn.execute("""
+                UPDATE mem_entries
+                SET content = $1,
+                    embedding = $2::vector,
+                    reconsolidation_count = $3,
+                    content_drift = $6,
+                    updated_at = NOW()
+                WHERE id = $4 AND reconsolidation_count = $5
+            """, new_content, str(new_embedding), current_recon_count + 1,
+                 memory_id, current_recon_count, content_drift)
         if result == "UPDATE 0":
             logger.debug("Reconsolidation skipped (concurrent write) for %s", memory_id)
             return False

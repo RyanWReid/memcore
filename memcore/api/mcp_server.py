@@ -350,6 +350,92 @@ async def health(request):
     return JSONResponse({"status": "ok", "service": "memcore", "gate_threshold": GATE_THRESHOLD})
 
 
+async def api_stats(request):
+    """System health stats — memory counts, MW distribution, stability, drift, suppression."""
+    from memcore.storage.postgres_store import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT
+                count(*) as total,
+                sum(case when access_count > 0 then 1 else 0 end) as accessed,
+                sum(case when access_count >= 5 then 1 else 0 end) as well_accessed,
+                round(avg(stability)::numeric, 2) as avg_stability,
+                round(avg(access_count)::numeric, 2) as avg_access,
+                sum(case when reconsolidation_count > 0 then 1 else 0 end) as reconsolidated,
+                round(avg(case when content_drift > 0 then content_drift end)::numeric, 3) as avg_drift,
+                sum(case when suppression_count > 0 then 1 else 0 end) as suppressed,
+                round(avg(case when mw_total > 0 then mw_success::numeric / mw_total end)::numeric, 3) as avg_mw_ratio,
+                sum(mw_total) as total_mw_retrievals,
+                sum(mw_success) as total_mw_successes
+            FROM mem_entries
+            WHERE status = 'active'
+        """)
+        types = await conn.fetch("""
+            SELECT memory_type, count(*), round(avg(stability)::numeric, 1) as avg_stab,
+                   round(avg(access_count)::numeric, 1) as avg_access
+            FROM mem_entries WHERE status = 'active'
+            GROUP BY memory_type ORDER BY count(*) DESC
+        """)
+        intents = await conn.fetchrow("""
+            SELECT count(*) as total,
+                   sum(case when status = 'active' then 1 else 0 end) as active,
+                   sum(case when status = 'completed' then 1 else 0 end) as completed
+            FROM mem_intents
+        """)
+    return JSONResponse({
+        "memories": {
+            "total": row["total"],
+            "accessed": row["accessed"],
+            "well_accessed_5plus": row["well_accessed"],
+            "avg_stability": float(row["avg_stability"] or 0),
+            "avg_access_count": float(row["avg_access"] or 0),
+        },
+        "lifecycle": {
+            "reconsolidated": row["reconsolidated"],
+            "avg_content_drift": float(row["avg_drift"] or 0),
+            "suppressed": row["suppressed"],
+        },
+        "memory_worth": {
+            "total_retrievals": row["total_mw_retrievals"],
+            "total_successes": row["total_mw_successes"],
+            "avg_success_ratio": float(row["avg_mw_ratio"] or 0),
+        },
+        "intents": {
+            "total": intents["total"],
+            "active": intents["active"],
+            "completed": intents["completed"],
+        },
+        "by_type": [
+            {"type": t["memory_type"], "count": t["count"],
+             "avg_stability": float(t["avg_stab"] or 0),
+             "avg_access": float(t["avg_access"] or 0)}
+            for t in types
+        ],
+    })
+
+
+async def api_mw_success(request):
+    """Mark memories as successful retrievals (Memory Worth signal).
+
+    POST {"memory_ids": ["id1", "id2", ...]}
+    Called by the retain hook when recalled memories contributed to the response.
+    """
+    body = await request.json()
+    memory_ids = body.get("memory_ids", [])
+    if not memory_ids:
+        return JSONResponse({"error": "memory_ids required"}, status_code=400)
+    from memcore.storage.postgres_store import get_pool
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE mem_entries
+            SET mw_success = mw_success + 1
+            WHERE id = ANY($1::text[])
+        """, memory_ids)
+    return JSONResponse({"status": "ok", "updated": len(memory_ids)})
+
+
 async def api_recall(request):
     """REST endpoint for recall. POST {"query": "...", "group_id": "homelab", "limit": 10}
 
@@ -531,12 +617,14 @@ def create_app() -> Starlette:
     app = Starlette(
         routes=[
             Route("/health", health),
+            Route("/api/stats", api_stats),
             Route("/api/recall", api_recall, methods=["POST"]),
             Route("/api/remember", api_remember, methods=["POST"]),
             Route("/api/forget", api_forget, methods=["POST"]),
             Route("/api/ingest", api_ingest, methods=["POST"]),
             Route("/api/clear_group", api_clear_group, methods=["POST"]),
             Route("/api/intent", api_intent, methods=["POST"]),
+            Route("/api/mw_success", api_mw_success, methods=["POST"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],

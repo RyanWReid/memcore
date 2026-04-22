@@ -83,6 +83,14 @@ async def get_pool() -> asyncpg.Pool:
                 # v6 prep: reconsolidation + arousal
                 "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS reconsolidation_count INTEGER NOT NULL DEFAULT 0",
                 "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS arousal_score REAL",
+                # v6: original content freeze (imagination inflation defense)
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS original_content TEXT",
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS content_drift REAL NOT NULL DEFAULT 0.0",
+                # v6: Memory Worth counters (success/failure tracking)
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS mw_success INTEGER NOT NULL DEFAULT 0",
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS mw_total INTEGER NOT NULL DEFAULT 0",
+                # v6: retrieval-induced suppression
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS suppression_count INTEGER NOT NULL DEFAULT 0",
             ]:
                 try:
                     await conn.execute(col_sql)
@@ -288,11 +296,8 @@ async def search(
 
     # Track access for returned results (fire-and-forget)
     if results:
-        result_ids = [r["id"] for r in results if r.get("id")]
-        if result_ids:
-            asyncio.get_event_loop().create_task(
-                _record_access(result_ids)
-            )
+        asyncio.get_event_loop().create_task(_record_access(results))
+        asyncio.get_event_loop().create_task(_apply_suppression(results))
 
     return results
 
@@ -371,24 +376,94 @@ def _apply_retention_scoring(results: list[dict]) -> list[dict]:
     return results
 
 
-async def _record_access(memory_ids: list[str]):
+def _stability_growth_factor(blended_score: float, rank: int) -> float:
+    """Bjork's Testing Effect: harder retrievals grow stability MORE.
+
+    Easy retrieval (top result, high score) = 1.1x growth.
+    Hard retrieval (low rank, low score) = 1.8x growth.
+    This creates a self-correcting system: weak-but-useful memories
+    gain MORE durability, preventing the rich-get-richer feedback loop.
+    """
+    difficulty = 1.0 - min(blended_score, 1.0)
+    rank_penalty = min(rank / 10.0, 0.5)
+    effective_difficulty = (difficulty + rank_penalty) / 2.0
+    return 1.1 + 0.7 * effective_difficulty
+
+
+async def _record_access(results: list[dict]):
     """Increment access_count and stability for recalled memories.
 
-    Stability grows by 1.3x per access (Ebbinghaus spacing effect).
+    Stability growth is difficulty-weighted (Bjork's Testing Effect):
+    hard retrievals grow stability more than easy ones.
+    Also increments Memory Worth total counter.
     Capped at 200 to prevent overflow.
     """
+    if not results:
+        return
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            for rank, r in enumerate(results):
+                mid = r.get("id")
+                if not mid:
+                    continue
+                score = float(r.get("blended_score", 0) or r.get("rrf_score", 0))
+                growth = _stability_growth_factor(score, rank)
+                await conn.execute("""
+                    UPDATE mem_entries
+                    SET access_count = access_count + 1,
+                        last_accessed_at = NOW(),
+                        stability = LEAST(stability * $1, 200.0),
+                        mw_total = mw_total + 1
+                    WHERE id = $2
+                """, growth, mid)
+    except Exception as e:
+        logger.warning("Failed to record access: %s", e)
+
+
+async def _apply_suppression(results: list[dict]):
+    """Retrieval-induced suppression: the winner suppresses competitors.
+
+    When the top memory wins, similar but lower-ranked memories get
+    a stability penalty (0.9x). This creates natural canonical-version
+    selection — richer memories suppress older, incomplete ones.
+
+    Based on Wimber et al. 2015 (Nature Neuroscience).
+    """
+    if len(results) < 2:
+        return
+
+    winner = results[0]
+    winner_content = winner.get("content", "")[:200].lower()
+    suppressed_ids = []
+
+    for r in results[1:]:
+        # Only suppress memories that are similar to the winner
+        competitor_content = r.get("content", "")[:200].lower()
+        # Quick similarity check: shared word overlap
+        winner_words = set(winner_content.split())
+        competitor_words = set(competitor_content.split())
+        if len(winner_words) < 3 or len(competitor_words) < 3:
+            continue
+        overlap = len(winner_words & competitor_words) / min(len(winner_words), len(competitor_words))
+        if overlap > 0.5:
+            suppressed_ids.append(r.get("id"))
+
+    if not suppressed_ids:
+        return
+
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
             await conn.execute("""
                 UPDATE mem_entries
-                SET access_count = access_count + 1,
-                    last_accessed_at = NOW(),
-                    stability = LEAST(stability * 1.3, 200.0)
+                SET stability = GREATEST(stability * 0.9, 0.5),
+                    suppression_count = suppression_count + 1
                 WHERE id = ANY($1::text[])
-            """, memory_ids)
+            """, suppressed_ids)
+        logger.debug("Suppressed %d competitors of winner %s", len(suppressed_ids), winner.get("id", "?")[:8])
     except Exception as e:
-        logger.warning("Failed to record access: %s", e)
+        logger.warning("Suppression failed: %s", e)
 
 
 async def _hybrid_search(

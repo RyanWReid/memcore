@@ -525,16 +525,23 @@ async def api_ingest(request):
         except (ValueError, TypeError):
             pass
 
+    # Accept optional memory_type (default: fact)
+    mt_str = body.get("memory_type", "fact")
+    try:
+        memory_type = MemoryType(mt_str)
+    except ValueError:
+        memory_type = MemoryType.FACT
+
     entry = MemEntry(
         content=content,
-        memory_type=MemoryType.FACT,
+        memory_type=memory_type,
         layer=StorageLayer.POSTGRES,
         group_id=group_id,
         epistemic_score=0.8,
         temporal=temporal,
         source_agent=body.get("source_agent", "benchmark"),
         gate_passed=True,
-        gate_reason="benchmark-ingest-bypass",
+        gate_reason="ingest-bypass",
     )
 
     result = await postgres_store.store(entry)

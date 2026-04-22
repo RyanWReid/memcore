@@ -1,0 +1,35 @@
+services:
+  memcore:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8020:8020"
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_URL=postgresql://memcore:memcore@memcore-db:5432/memcore
+      - MCP_PORT=8020
+    volumes:
+      - reranker-cache:/app/.cache/huggingface
+    depends_on:
+      memcore-db:
+        condition: service_healthy
+
+  memcore-db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=memcore
+      - POSTGRES_PASSWORD=memcore
+      - POSTGRES_DB=memcore
+    volumes:
+      - memcore-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memcore"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  memcore-pgdata:
+  reranker-cache:

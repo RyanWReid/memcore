@@ -1,0 +1,344 @@
+        d) this is an idea i had what do you think
+  available in this session. why?
+▎ "What reverse proxy does the homelab use and why was it chosen over alternatives?"
+"Check memory for what we decided about the reverse proxy and why"
+alright so whats the total build for hack lab
+also know our pve2 has 250gb space i think might even be 100 double check but pve1 has 1 tb
+And you choose. This is all in my server rack. So what's the smartest decision? Trying to standardize.
+are we able to run a model that moitors and keeps the server healthy?
+Are we at that point yet, or are we still working?
+are we changing our method or no?
+are we getting tmeout issues on scoring?
+are we just breaking it or actually getting somewhere?
+are we sure its ifxed?
+are we using whonix?
+be intelligent in picking what we need and what constitutes being added
+best option what do you think?
+better lore which
+bigger picture, what do we need to figure out to improve
+but how far do we want to break into catagories
+but when would it know to use it
+but when would it no
+caddy should have repladed it go check then yes proceed
+can we analyze our usage and resources and ensure we are balanced effectively? do we need anything else hosted to measure?
+can we check like reddit or github whatever for opinions
+can we get all the mcp tools required to use the home pc? and set up wake to lan? we want what work pc has but not we need on home pc for full control and set up ollama
+can we research all options and see what people recomend
+can we research this online see what others are doing or new tech?
+can we see where our research is compared to real lab studies on ai memory?
+can we try bert thing or what does that look like
+Can you fix this and get this off the repo then and keep the research private? Commit and push. Do whatever you need now.
+can you look where our claude remote is on the server
+can you research deeply or me to see what others are saying?
+check graph what do we think
+check if its alll healthy. also i have a pve with x2 4g ram should we load it in or no
+check macos mini for the usb with monteray download for the patcher osc something
+check memories now
+check to see the contaier is working
+check what was on it. is this a big set back?
+claude doesnt know to use it should we make it a tool call webhooke before runnign anything? what about os layer?
+cool now as for guacomole how do i access
+did we add firefly and wallo?
+did we change something that prevents this issue? we dont want to posion our data, we can rerun if we need too through the convo
+did you deploy it check coolify
+do more research on the subject what edge can we find
+do we add memories and seed or no?
+do we have auto recovery?
+do we have lightrag and coolidy mcps?
+do we need tailscale or is that overcomplicating it
+do we need to do what we are doing right now what are we trying to accomplish
+do we replace guac? i hat guac and ill never use it
+done, but first lets plan what we will do with this mac. should we host all mcps from it?
+explain what this does and how does it work
+fixed with that. how do we fix this long term
+for our homelab, how do we feel about adding reticulum or other cool radio softwares for communications?
+for some reason im having crazy dns issues why is that
+for some reason im having crazy dns issues why is that its like connection is dropping and then coming back and its spotty
+for sure. so do we wait now or anthing to start looking for or what
+for the most accessed memories isnt it just smarter to set a counter or something for how many times a memory is accessed? or is this method you have bette
+go into the show yourself
+good do we keep the new pve02 name?
+got it now we are going to start a new session what do we want to do
+great now what else should we fix in our homelab?
+hardware we have ready for disposal are 3 more 7060s 16gb ram, a mac mini
+hardware we have ready for disposal are 3 more 7060s 16gb ram, a mac mini 2014 intended for apple ecosystem access for the ai, or we can build something on facebook marketplace wit
+have i lost progress? how long to get back to where i was
+he homelab MCP server (including gpt-researcher) just disconnected — those tools are no longer
+here thing shows black can my hardware hanle this
+how about chatgpt codex instead with a wrapper?
+how about streaming music
+how big are backups?
+how can i give that too another claude to set up
+how confident are we in this idea
+how did you know about lightrag?
+how do i do sync with her
+how do i invite her
+how do i know its not like cable or phone line or something
+how do i ssh to it?
+how do our memories look? should we start fresh? reformat? back load chats?
+how do we get better eval score
+how do we improvce
+how do we improve
+how do we prevent this from happening also i want you to reference the memory graph do we add or not add anything
+how do we stream it so we dont need to ownload
+how do we test it. delete sssion handoff
+how do we test the memory for when we are planning for example
+how do we upgrade?
+how do we use it?
+how does memcore actualy give claude code memory? is it a call? injected? should we make a plugin?>
+how does our systemderiv truth
+how easily repairable is a rock crack in windshield
+how is the memories looking?
+how long did one take? is it better to use 14b on home? we used 14 cents
+how our benchmar
+how you using haiku
+hows it looking compared to the set before
+hows mcp working
+hows memories now
+hows our memory right now
+hows the container?
+https://guacamole.home.lab/ not going anywhere
+hwhats best long term
+i bought it what do you need form porkbun
+i build like this each day. question is if i want to start building autonomously do we use claude code?
+i cant access .homelab.lab why? dns is set
+I don't believe I triggered them. I'm kinda managing some stuff. Maybe I hit a wire, but I don't remember doing so. And, yes, we're working on jelly sear right now.
+i feel like pihole isnt removing ads am i crazy can you check
+i have both 16gb ram 1 with kingston ssd sata 500gb and 1 with sky 1tb ssd nvme which gets pve3 and which gets kali box
+i have pve 7050 with 250ssd nme and 500 sata ssd which do i install os on?
+i have ryanwreid/homelab-ui which is myy interface to my system and then i use clawdbot on 203 as my systemwide bot
+i just want streaming though for when i dont want to wait and download
+i mean based on the homelab docs is it worth using kimi? what are people using on reddit
+i mean how would we cleanly reorganize? without needing to reset up
+i mean i want to be able to see when thngs break? so monitoring is a requirment
+i mean look online what do people recommend 7b or 14b
+i mean you know our plan and what we have. whats the bes move right now
+i restarted server check everything
+i think it may be an issue when i have multiple sessions open
+i think we just need to use claude code for where thinking is needed and then we do most of the work locally if we can
+i want to install macos onto 2014 mac mini. long story short having issues doing anfs to drive which is required because it says it needs partitions however i formatted drive
+I'm just saying, should we do the 99? Or is this better? What would an IT senior IT guy do?
+If this really does outperform what's currently out there, what do I do?
+im asking are my hardware up to what is required to run two instaces
+im asking what is the bert approach?
+im saying its slow check resources
+im seing memory go up constantly how do we manage what chats go to memory? what memory databases are used? (personal, work, homelab) is seperate do we do all in one and seperat lat
+is it ready? check everything
+is ntfy something we should incorporate everywhere?
+it created two hooks we need to look at that why is there two
+it turned off  dont know why?
+its bugging ou why isnt anything working
+its on glinet but when i connect to router it doesnt reolve
+its up you do the rest. what is it that we want to do with it?
+jellyfin not showing downloaded movies from radarr
+keep building or test we can build some tests like how do i know if its working hen i working
+keep in mind. a source of truth is very needed. right now do we build more or keep waiting for more memories
+lets enrich some widgets for homelab-ui. what should we add? can we hook up ntfy to notifications in the ui?
+lets evaluate where we are at. do we update memory? are we starting new session? cntinue? git?
+lets focus on the memcore lets revaluate what we should build out next
+lets get away from my personal thinking and assess this from a cost effective angle. which is best?
+lets get this running which node should we put this on?
+lets keep researching add what we have so far to docs
+lets look at homelab_ui are we missing anything thing i need to manage and use my server? services, apps, etc.
+lets look at memcore, where are we at and what are our next steps to grow
+lets look at some convos and see how its actually recording
+lets read the project and memcore status, where are we at? how are the memories looking right now
+lets research how to enrih that further than hardcoding worders
+lets research how to get this task done
+lets research this, maybe we find a solution that slo helps slve the tool use of not kn owing how to use them
+like going bakc and fourth on my hack box why we are choosing the decisions we make it should get smarter right?
+like i want to interact when building but it should be like server side claude code
+like we want to be documentng this somewhere to keep a source of truth on how we are progrssing
+look to what others are doing
+love it, now go through other services to find which ones we need to do the same too
+max token limit? what should it be? if any
+minemap.lol hows this
+needs auth is what it says
+new question so rn we are working on homelab and thats great for memory but what if we work on a project or personal issue will it gt added to memory? is that ok?
+Nexterm what about this? use memory to look at our mesh network stuff
+no lets just go over what happened
+now how are we doing compared to memorypalace on github do research
+now i want to add girfriend to network but i only want her on when i let her for this reason we are watching on jellyfin watch party. after i want to disable her access best soluti
+now lets access my work computer remeber when we add mcps we want to edit the user claude .jsno
+now lets assess what we have. for ai i want to make sure we are building something sustainable. should we move anything or build anything to improve our system?
+now researh the gaps and learn from what we dealt with
+now what about the tools? we want to install claude code
+now what if i need to use memories form another project?
+now what if we have a daemond that needs to use browser and click around to link things is that going to cause issues?
+ok lets do mesh central butu what ui is there
+ok so lets assume that for now what do i need else for the system
+ok so what prompt to i give the new session
+Okay. Now as for the other idea, what if I start dispatching agents that are doing stuff that require storage space?
+omen 15 runs hot from what i remeber can u see if this is true and look it up
+perfect well whats next
+question is since i use ai for everything, management, i never touch it myself decise what tools are better as an mcp
+question now is, should we move any of the containers what do we want pve01 to have since its the most powerful? or build/buy new node?
+refer to idea docs is claudeclaw better? what makes open claw best
+research more and find all options in reddit and what people are talking about in 2026
+research online what others are doing
+reshow the memories looking?
+should i keep screen on in server rack an show metrics on it
+should i use the cloud services? can we look into it. if whats the cost and tradeoff compared to mine
+shows streaming server not avaialble
+so are we all setup
+so can we ponder how to achieve that? if we need more research we can find an api to ingest and compare research from others
+so do we check back at 500?
+so explain to me what its good at and what its not
+so for osint mcp what does that look like
+so for our memory graph how will it know when to overwrite memories say an entity changes or memory is stale
+so how can we enrich this mesgh system of developing. dashboard? commands? our own mcp? get creative but find porven methods that support our idea
+so how do we download hoppers
+so how do we enter remotely?
+so how do we find movies we want
+so how do we keep track on all the memories of the daemonds. is it deleted when task is done?
+so how do we setup jellyfin and everything to start streaming movies
+so how should we solve this issue? should we consult ai research online?
+so i want to transisiton from spotify to lidarr. whats the best way to do that? is lidarr the best replacement?
+so interactive work is claude code like what we are doing now development.
+so is running dbian headless and have kali redundant? or is that where we store mcps to be used by claude code on kali vm? also should we spin up a vm everytime we brows deep web o
+so it appears it may be against tos to the claude code thing. how likely is it we wil get caught?
+so just wantd to run an idea if we were to skip the omen as the media server how would the main one perform? could or should we move some containers to the 7050?
+so lets look on git for people who have attempted this idea and what they found lets learn from people.
+so now that you have access to both pve how do we make this work
+so pve03 is for our ai stuff but we have a fourth box ready to go what are we calling it
+so pve03 ready for setup what do i put as host name what were the other ones setup as
+so quick question if this is the homelab graph what happens when i use claude code or talk about personal things like fitness or health
+so she sees a pause button but nothing is playing how do we solve this look it u
+so should we use a locall llm? what model works with our hardware?
+so the graph is kind of populating can we check if ollama is doing it?
+so there are still sign in pages i feel like i have to sign in stilll everywhere i go
+so to get better we need what
+so we have pve01/pve2 and then pve-hack whats pve-3 for?
+so we have two 6tb drives whats th setup?
+so what do i give new session to build this?
+so what do you know so far
+so what else can we do? are our devices on tailscale all meshed?
+So what happens if I just don't do it?
+so what mcps do we need now that we can add with the services we have. lets manage our mcp inventory and also check the health of each that we have so far
+so whats a good test i cn try
+so whats best way to vnc?
+so whats nxt step
+so whats the move forward to ensure we are going into the correct direction
+so when does it make sense to add ane xternal firewall?
+tailscale on do health check ensure everything is on
+that link doesnt work though it goes nowhere
+thats what i mean
+the graph is falk shows to 1200 still
+The question is or we reinventing the wheel or are we ofeering something noone has done yet
+this happened before. the pass we set was jellyfin/Unknown6557? whats the ip instead of the home.lab one
+this is crazy fast bro, whats the next steps. its still going
+this is great, also look at /Users/ryanreid/Development/Projects/homelab/ideas/memcore-architecture.m
+vm 203 not working still. which is wierd cause we can in proxmox
+wait why did we make a wakeonlan? is there a better solution for this? you should be able to ssh into it get it working no set up script
+Wait. So did we learn anything from that run? What was the result
+Walk me through how to configure the port. I mean, I don't know how to configure anything on this catalyst.
+we dont want to get to custom we want what works. so to achieve all of what i want what should we run containerized
+we have a 2014 mac mini with a hard drive different the what came with tit. how to get it working?
+we have a new version why do i see the old one?
+we updated the doc what do you think?
+We wanna make sure that we are showcasing our long term goals. And how it currently measures against its competitors.
+we want ai to do osint but we need to do this securely possibly even consider another ai seperate from our openclaw. do we need more hardware to air gap?
+we want the benchmark everyone esle is using we need to research how to do this effectively and not get wrapped up in building a false benchmark
+we want to get this working perfectly to recall with high accuracy and allow understanding at all times we outlined idea in /ideas what is next step
+we were ssh with tool just fine what happened.
+well i suppose we now just have pve3 so whats the plan for kali box. sff or another micro
+well lets analyze all containers at the moment and what we want to add and lets look at what they do and knowing the 7090 is the better computer whats worth utilizing those resourc
+well with what we have so far what can we get started on? the third node is not in yet
+Well, going over why not using memOS. There were some reasons for it that they had in some previous conversations. I we basically went over and decided it was best to bill from wha
+what about iphone
+what about like metasploit mcp
+what about memorypalace?
+what about nextcloud or penpot?
+what about open claw? also can we get away from claude code and do something local? what hardware would i need?
+what about points
+what about superclaude
+what about the research doc
+what about vidora api or streaming rather than download? music?
+what about viewing reddit links?
+what are we running on omen
+what are you oing
+what did we last do
+what did we learn
+what did you do to pve2 its wiped?!
+what do they do?
+what do we have left to add? can we use tools in metamcp? how should isolation work. n8n workflow with data files on people?
+what do you think we got
+what does homelab do that wouldnt wrk here
+what does she type in aserver url
+what does this tell us?
+what else do we need to add to our homelab
+what else left to fix
+what else to add
+what ever is the cleanest number to our homelab device setup
+what happened to internet
+what happened to our research pipe,ine where we grab dynamic data and all of that
+what happens if dmv finds out
+what hardware for that llm a 3060? 20 series?
+what hardware is mac
+what is happening with homelab connection not working metamcp
+what is my homelab missing?
+what is reddit saying?
+what is the scale of what i want give me an example
+what mcps tools?
+what n8n workflows do we need right now?
+what new memories do we have im running three things simultaniouls
+what other areas should i give the other ai to look into to populate the memory?
+what othr ideas do we have we can work on? look in i/ideas
+what recent update was made for claude
+what should we add? use our researcher
+what should we build next? lets evaluate where we are at
+what to know about my pve-hack
+what was the first luster idea
+what was the recent meltdown
+what we want to do is cmpletely clear it right now
+What's the best option?
+whats a good one
+whats best for reliablity and our later ideas?
+whats happening is dns slowing down
+whats in our todo
+whats my metamcp password and user
+whats next for memcore?
+whats next for the memcore
+whats our nxt steps
+whats password for wraith
+whats the best option long term
+whats the chances of getting breached if its on network?
+whats the cost ram wise? what can ia fford?
+whats the notfication setuo
+whats the plan to get it on the network and have you access it once its installed
+whats the simplest solution lets not overenineer anything we dont have too whats going to get us closest to better benchmark
+whats wrong with memcore
+whatss next any other improvements?
+when do we build more
+when i click notification i want to see more details, lets plan how we view. ideas: notifications app that brings up full page, redirects to ntfy, popup.
+when i go to convert to apfs it says dfailed requires partition scheme
+when was it released
+where does she do it in browser
+where to eat. all i had today was double chicken bowl el pollo loco
+which is better according to you
+why am i getting video not playable?
+why are you suggesting we stop?
+why did we go backwards?
+why is authenk still there? is it on homelab still?
+why is coolify not loading
+why is it so  slow?
+why kali headless?
+why no tailscale?
+why not draw.io?
+why not ethernet tho it should be cnnected. shows it it
+why not increase the resources. i will keep dveloping
+why not like mesh central or kasm. i just want a unified workspace to do all this
+why not litellm i thought that was the plan
+windows pc is online and work pc we want to get those working. how?
+wire graphiti in and run a small benchmark and see how we do 20 questions
+woah did we kill the session
+worked! whats name and info i put in how should we name this on the network
+Yeah. But do you see how that's kinda, like, weird looking?
+yes go check now the storage
+yes lets do it, also what about proxmox firewall and removeing opnsense?
+yes lets get it all setup and documented however we may need to increase resources
+yes lets plan this out and reavaluate when we have a plan
+yes, also we need to update the github readme to show everything up to date
+yes, now whats the working idea
+you should have full control of windows why not?
+you were researching with agent what did you find

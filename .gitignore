@@ -5,3 +5,13 @@ __pycache__/
 dist/
 build/
 .cache/
+
+# Research — private, stays local
+ideas/
+research/
+
+# Benchmark artifacts
+memcore/benchmark/.checkpoint*
+memcore/benchmark/*.jsonl
+memcore/benchmark/*.log
+memcore/benchmark/longmemeval_s_cleaned.json

@@ -10,10 +10,9 @@ Reports precision@3 and precision@5 for each.
 
 import json
 import os
-import glob
 import httpx
 
-MEMCORE_URL = "http://localhost:8020"
+MEMCORE_URL = os.getenv("MEMCORE_URL", "http://localhost:8020")
 
 # Test cases: (query, namespace, expected_substring_in_answer)
 # Each tests whether MemCore can surface the right memory for a real question.

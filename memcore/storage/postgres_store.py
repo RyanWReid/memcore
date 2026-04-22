@@ -312,6 +312,7 @@ _TYPE_LAMBDAS = {
     "event": 0.02,         # ~35 day half-life at stability=1
     "document": 0.005,     # ~140 day half-life at stability=1
     "goal": 0.05,          # ~14 day half-life at stability=1
+    "tool_hint": 0.0,      # permanent — tool catalog doesn't decay
 }
 
 

@@ -23,6 +23,7 @@ class MemoryType(str, Enum):
     DOCUMENT = "document"  # long-form content, specs, logs → PostgreSQL
     GOAL = "goal"  # current objectives, priorities → PostgreSQL
     TRAJECTORY = "trajectory"  # tool call sequences + outcomes → PostgreSQL
+    TOOL_HINT = "tool_hint"  # MCP tool descriptions for retrieval → PostgreSQL
 
 
 class StorageLayer(str, Enum):
@@ -48,6 +49,7 @@ TYPE_TO_LAYER: dict[MemoryType, StorageLayer] = {
     MemoryType.DOCUMENT: StorageLayer.POSTGRES,
     MemoryType.GOAL: StorageLayer.POSTGRES,
     MemoryType.TRAJECTORY: StorageLayer.POSTGRES,
+    MemoryType.TOOL_HINT: StorageLayer.POSTGRES,
 }
 
 

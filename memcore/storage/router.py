@@ -285,7 +285,7 @@ async def recall_fused(
     from memcore.config import RECONSOLIDATION_ENABLED
     if RECONSOLIDATION_ENABLED and combined:
         from memcore.lifecycle.reconsolidation import trigger_reconsolidation
-        recon_candidates = [m for m in combined[:5] if m.get("memory_type") != "intent"]
+        recon_candidates = [m for m in combined[:5] if m.get("memory_type") not in ("intent", "tool_hint")]
         if recon_candidates:
             asyncio.create_task(trigger_reconsolidation(recon_candidates[:3], query, confidence))
 

@@ -6,16 +6,17 @@ then does a bulk SQL UPDATE via a single SQL file pushed through the SSH chain.
 """
 
 import json
+import os
 import subprocess
 import sys
 import time
 import httpx
 
-MEMCORE_URL = "http://localhost:8020"
-LITELLM_URL = "http://localhost:4000/v1"
-LITELLM_KEY = ""
-EMBEDDING_URL = "http://localhost:8100/v1/embeddings"
-MODEL = "deepseek-chat"
+MEMCORE_URL = os.getenv("MEMCORE_URL", "http://localhost:8020")
+LITELLM_URL = os.getenv("LITELLM_BASE_URL", "http://localhost:4000/v1")
+LITELLM_KEY = os.getenv("LITELLM_API_KEY", "")
+EMBEDDING_URL = os.getenv("EMBEDDING_URL", "http://localhost:8100/v1/embeddings")
+MODEL = os.getenv("GATE_MODEL", "deepseek-chat")
 
 
 def get_all_memories() -> list[dict]:
@@ -174,16 +175,14 @@ def main():
         f.write("\n".join(sql_statements))
 
     print(f"\nApplying {enriched} updates...")
-    cmds = [
-        f"scp {sql_file} root@YOUR_HOST:/tmp/enrich_memories.sql",
-        "ssh root@YOUR_HOST 'scp /tmp/enrich_memories.sql root@YOUR_HOST:/tmp/enrich_memories.sql'",
-        "ssh root@YOUR_HOST \"ssh root@YOUR_HOST 'pct push 141 /tmp/enrich_memories.sql /tmp/enrich_memories.sql && pct exec 141 -- docker cp /tmp/enrich_memories.sql memcore-memcore-db-1:/tmp/enrich_memories.sql && pct exec 141 -- docker exec memcore-memcore-db-1 psql -U memcore -d memcore -f /tmp/enrich_memories.sql'\"",
-    ]
+    # Execute against local database by default.
+    # Set DB_EXEC_CMD env var for remote execution (e.g., SSH relay to container).
+    db_exec = os.getenv("DB_EXEC_CMD", "docker exec memcore-memcore-db-1 psql -U memcore -d memcore -f /tmp/enrich_memories.sql")
+    cp_cmd = os.getenv("DB_CP_CMD", f"docker cp {sql_file} memcore-memcore-db-1:/tmp/enrich_memories.sql")
 
-    for cmd in cmds:
+    for cmd in [cp_cmd, db_exec]:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
         if "UPDATE" in result.stdout:
-            # Count successful updates
             updates = result.stdout.count("UPDATE 1")
             print(f"Applied {updates} updates to database")
 

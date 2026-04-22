@@ -233,33 +233,94 @@ For best results, use both: the hook provides passive recall on every prompt, wh
 
 ## Architecture
 
+### Write Path
+
+```mermaid
+flowchart TD
+    A[Content] --> B{Epistemic Write Gate}
+    B -->|Score >= 0.55| C{Route by Type}
+    B -->|Score < 0.55| D[Rejected with reason]
+    B -->|Duplicate detected| E[Blocked]
+    
+    C -->|decisions, events| F[(Graphiti\nKnowledge Graph)]
+    C -->|facts, goals| G[(PostgreSQL\npgvector + tsvector)]
+    C -->|all types| H[Fact Extraction\n2-3 atomic facts]
+    H -->|fire-and-forget| G
+    
+    style B fill:#9B59B6,color:#fff
+    style D fill:#E74C3C,color:#fff
+    style E fill:#E74C3C,color:#fff
+    style F fill:#4169E1,color:#fff
+    style G fill:#4169E1,color:#fff
 ```
-WRITE PATH:
-  Content --> Epistemic Write Gate (quality 0-1, type classification)
-    |-- Score >= 0.55 --> Route by type:
-    |     decisions/events --> Graphiti (temporal knowledge graph)
-    |     facts/goals      --> PostgreSQL (pgvector + tsvector)
-    |     + Fire-and-forget fact extraction (2-3 atomic facts per memory)
-    |-- Score < 0.55 --> Rejected (with reason)
-    |-- Duplicate check: cosine > 0.85 OR keyword overlap >= 3 --> Blocked
 
-READ PATH:
-  Query --> Expand (LLM synonyms)
-        --> Check prospective intents (trigger matching)
-        --> Hybrid search (pgvector cosine + tsvector keyword + RRF fusion)
-        --> Cross-encoder rerank (ms-marco-MiniLM, 70/30 blend)
-        --> Ebbinghaus retention scoring (per-type decay, stability growth)
-        --> Fuse with Graphiti entity results (when graph contributes)
-        --> Metamemory confidence signal (high/moderate/stale/weak)
-        --> Fire-and-forget: access tracking + reconsolidation
-        --> Return results + confidence + triggered intents to LLM
+### Read Path
 
-LIFECYCLE:
-  Access tracking: Each recall increments access_count, grows stability
-  Ebbinghaus decay: R = e^(-lambda * days / stability), per-type lambdas
-  Reconsolidation: Prediction-error gated — enriches memories with new context
-  Prospective memory: Intent triggers surface when conditions match
-  Decision supersession: New decisions auto-replace old ones on same topic
+```mermaid
+flowchart TD
+    Q[Query] --> EX[LLM Query Expansion]
+    EX --> PI{Prospective\nIntent Check}
+    PI -->|triggers match| INT[Surface Intents First]
+    PI --> PAR
+    
+    subgraph PAR [Parallel Search]
+        PG[PostgreSQL\nHybrid Search\nvector + keyword + RRF]
+        GR[Graphiti\nEntity Search]
+    end
+    
+    PAR --> CE[Cross-Encoder Rerank\nms-marco-MiniLM\n70% RRF + 30% CE]
+    CE --> EB[Ebbinghaus Retention\nper-type decay + stability]
+    EB --> MM{Metamemory}
+    MM -->|high| R1[Return with confidence]
+    MM -->|moderate| R1
+    MM -->|stale| R1
+    MM -->|weak / no_memory| R1
+    
+    R1 --> AT[Access Tracking\nstability *= 1.3]
+    R1 --> RC{Reconsolidation\nPrediction Error?}
+    RC -->|surprise 0.3-0.7| EN[LLM Enrichment]
+    RC -->|too similar / unrelated| SK[Skip]
+
+    style Q fill:#4CAF50,color:#fff
+    style MM fill:#9B59B6,color:#fff
+    style RC fill:#E67E22,color:#fff
+    style INT fill:#3498DB,color:#fff
+```
+
+### Memory Lifecycle
+
+```mermaid
+flowchart LR
+    subgraph WRITE [Write Time]
+        W1[Epistemic Gate\nscore 0-1]
+        W2[Type Classification]
+        W3[Fact Extraction]
+    end
+    
+    subgraph LIVE [Living Memory]
+        L1[Access Tracking\ncount + stability]
+        L2[Ebbinghaus Decay\nR = e^-t/S]
+        L3[Reconsolidation\nenrich on recall]
+        L4[Prospective Memory\nintent triggers]
+    end
+    
+    subgraph FADE [Natural Decay]
+        F1[Decisions: permanent]
+        F2[Facts: 70-day half-life]
+        F3[Events: 35-day half-life]
+        F4[Goals: 14-day half-life]
+    end
+    
+    WRITE --> LIVE
+    LIVE --> FADE
+    L1 -->|each recall| L2
+    L2 -->|stability grows| L1
+    L3 -->|new context| L1
+    
+    style W1 fill:#9B59B6,color:#fff
+    style L3 fill:#E67E22,color:#fff
+    style L4 fill:#3498DB,color:#fff
+    style F1 fill:#27AE60,color:#fff
 ```
 
 ---

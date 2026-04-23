@@ -418,27 +418,6 @@ async def api_stats(request):
     })
 
 
-async def api_mw_success(request):
-    """Mark memories as successful retrievals (Memory Worth signal).
-
-    POST {"memory_ids": ["id1", "id2", ...]}
-    Called by the retain hook when recalled memories contributed to the response.
-    """
-    body = await request.json()
-    memory_ids = body.get("memory_ids", [])
-    if not memory_ids:
-        return JSONResponse({"error": "memory_ids required"}, status_code=400)
-    from memcore.storage.postgres_store import get_pool
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute("""
-            UPDATE mem_entries
-            SET mw_success = mw_success + 1
-            WHERE id = ANY($1::text[])
-        """, memory_ids)
-    return JSONResponse({"status": "ok", "updated": len(memory_ids)})
-
-
 async def api_recall(request):
     """REST endpoint for recall. POST {"query": "...", "group_id": "homelab", "limit": 10}
 
@@ -719,7 +698,6 @@ def create_app() -> Starlette:
             Route("/api/ingest", api_ingest, methods=["POST"]),
             Route("/api/clear_group", api_clear_group, methods=["POST"]),
             Route("/api/intent", api_intent, methods=["POST"]),
-            Route("/api/mw_success", api_mw_success, methods=["POST"]),
             Route("/api/recall_feedback", api_recall_feedback, methods=["POST"]),
             Route("/api/recall_events", api_recall_events, methods=["GET"]),
             Route("/sse", endpoint=handle_sse),

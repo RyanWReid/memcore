@@ -421,8 +421,11 @@ async def _record_access(results: list[dict]):
 
     Stability growth is difficulty-weighted (Bjork's Testing Effect):
     hard retrievals grow stability more than easy ones.
-    Also increments Memory Worth total counter.
     Capped at 200 to prevent overflow.
+
+    Note: Memory Worth (mw_total, mw_success) is bumped separately, in
+    record_recall_feedback(), so the ratio reflects ground-truth usage
+    rather than raw retrieval traffic. See record_recall_feedback below.
     """
     if not results:
         return
@@ -439,8 +442,7 @@ async def _record_access(results: list[dict]):
                     UPDATE mem_entries
                     SET access_count = access_count + 1,
                         last_accessed_at = NOW(),
-                        stability = LEAST(stability * $1, 200.0),
-                        mw_total = mw_total + 1
+                        stability = LEAST(stability * $1, 200.0)
                     WHERE id = $2
                 """, growth, mid)
     except Exception as e:
@@ -502,20 +504,52 @@ async def log_recall_event(
 
 
 async def record_recall_feedback(event_id: str, used_memory_ids: list[str]) -> bool:
-    """Record which memories from a recall were actually used by the LLM."""
+    """Record which memories from a recall were actually used by the LLM,
+    and bump the Memory Worth counters (mw_total for all recalled IDs,
+    mw_success for the used subset).
+
+    Memory Worth is bumped here — not at retrieval time — so the signal
+    reflects ground-truth usefulness in recalls that actually had a
+    judged response, rather than every raw retrieval (which includes
+    recalls the hook discards due to weak confidence, secondary namespace
+    lookups, and tool-hint lookups that never reach the prompt).
+
+    Idempotent on the event: only bumps on the first feedback for a given
+    event (feedback_received_at IS NULL). Re-posting feedback for the
+    same event won't double-count.
+    """
     try:
         pool = await get_pool()
         async with pool.acquire() as conn:
-            result = await conn.execute(
-                """
-                UPDATE recall_events
-                SET used_memory_ids = $1, feedback_received_at = NOW()
-                WHERE id = $2::uuid
-                """,
-                used_memory_ids,
-                event_id,
-            )
-            return result.startswith("UPDATE 1")
+            async with conn.transaction():
+                row = await conn.fetchrow(
+                    """
+                    UPDATE recall_events
+                    SET used_memory_ids = $1, feedback_received_at = NOW()
+                    WHERE id = $2::uuid AND feedback_received_at IS NULL
+                    RETURNING memory_ids
+                    """,
+                    used_memory_ids,
+                    event_id,
+                )
+                if row is None:
+                    return False
+
+                recalled_ids = [m for m in (row["memory_ids"] or []) if m]
+                if recalled_ids:
+                    await conn.execute(
+                        "UPDATE mem_entries SET mw_total = mw_total + 1 "
+                        "WHERE id = ANY($1::text[])",
+                        recalled_ids,
+                    )
+                used = [m for m in used_memory_ids if m]
+                if used:
+                    await conn.execute(
+                        "UPDATE mem_entries SET mw_success = mw_success + 1 "
+                        "WHERE id = ANY($1::text[])",
+                        used,
+                    )
+                return True
     except Exception as e:
         logger.warning("Failed to record recall feedback: %s", e)
         return False

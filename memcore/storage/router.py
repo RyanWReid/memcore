@@ -206,6 +206,9 @@ async def recall_fused(
     query: str,
     group_id: str = "homelab",
     limit: int = 10,
+    source: str = "unknown",
+    session_id: str | None = None,
+    source_agent: str | None = None,
 ) -> list[dict]:
     """Fused recall: postgres + graphiti results merged into a single ranked list.
 
@@ -214,7 +217,11 @@ async def recall_fused(
     3. Deduplicate by content similarity
     4. Re-rank combined set with cross-encoder
     5. Return top-k flat list
+    6. Log event to recall_events table for observability
     """
+    import time
+    t_start = time.time()
+
     # Run both searches in parallel — graphiti has its own timeout
     pg_task = postgres_store.search(query, group_id=group_id, limit=limit)
     gr_task = graphiti_store.search(query, group_id=group_id, limit=limit)
@@ -288,6 +295,25 @@ async def recall_fused(
         recon_candidates = [m for m in combined[:5] if m.get("memory_type") not in ("intent", "tool_hint")]
         if recon_candidates:
             asyncio.create_task(trigger_reconsolidation(recon_candidates[:3], query, confidence))
+
+    # Fire-and-forget recall event logging (observability)
+    latency_ms = int((time.time() - t_start) * 1000)
+    event_id = None
+    try:
+        event_id = await postgres_store.log_recall_event(
+            query=query,
+            group_id=group_id,
+            results=combined,
+            confidence=confidence,
+            source=source,
+            session_id=session_id,
+            source_agent=source_agent,
+            latency_ms=latency_ms,
+        )
+        if event_id:
+            confidence["event_id"] = event_id
+    except Exception as e:
+        logger.debug("Recall event logging failed: %s", e)
 
     return combined, confidence
 

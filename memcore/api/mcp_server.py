@@ -303,6 +303,9 @@ async def _handle_recall(args: dict) -> list[TextContent]:
         query=query,
         group_id=group_id,
         limit=limit,
+        source="mcp",
+        session_id=args.get("session_id"),
+        source_agent=args.get("source_agent"),
     )
     return [TextContent(
         type="text",
@@ -441,6 +444,8 @@ async def api_recall(request):
 
     Default: fused recall (postgres + graphiti merged).
     Pass "layers" to use per-layer response instead.
+
+    Optional fields for observability: session_id, source, source_agent
     """
     body = await request.json()
     query = body.get("query", "")
@@ -459,12 +464,95 @@ async def api_recall(request):
         serializable = json.loads(json.dumps(results, default=str))
         return JSONResponse(serializable, status_code=200)
 
-    # Default: fused recall with metamemory confidence
-    fused, confidence = await router.recall_fused(query=query, group_id=group_id, limit=limit)
+    # Default: fused recall with metamemory confidence + event logging
+    fused, confidence = await router.recall_fused(
+        query=query,
+        group_id=group_id,
+        limit=limit,
+        source=body.get("source", "api"),
+        session_id=body.get("session_id"),
+        source_agent=body.get("source_agent"),
+    )
     serializable = json.loads(json.dumps({
         "results": fused, "count": len(fused), "confidence": confidence,
     }, default=str))
     return JSONResponse(serializable, status_code=200)
+
+
+async def api_recall_feedback(request):
+    """Record which memories from a recall event were actually used by the LLM.
+
+    POST {"event_id": "uuid", "used_memory_ids": ["id1", "id2"]}
+    """
+    body = await request.json()
+    event_id = body.get("event_id", "")
+    used_ids = body.get("used_memory_ids", [])
+    if not event_id:
+        return JSONResponse({"error": "event_id required"}, status_code=400)
+
+    from memcore.storage.postgres_store import record_recall_feedback
+    ok = await record_recall_feedback(event_id, used_ids)
+    return JSONResponse({"recorded": ok, "event_id": event_id, "count": len(used_ids)})
+
+
+async def api_recall_events(request):
+    """Query recent recall events for analysis.
+
+    GET /api/recall_events?group_id=homelab&limit=100&since_hours=24
+    """
+    group_id = request.query_params.get("group_id")
+    limit = int(request.query_params.get("limit", 100))
+    since_hours = int(request.query_params.get("since_hours", 24))
+
+    from memcore.storage.postgres_store import get_pool
+    pool = await get_pool()
+
+    where_parts = ["created_at >= NOW() - ($1 * INTERVAL '1 hour')"]
+    params = [since_hours]
+    if group_id:
+        where_parts.append(f"group_id = ${len(params) + 1}")
+        params.append(group_id)
+    params.append(limit)
+
+    sql = f"""
+        SELECT id, query, query_length, group_id, confidence_level, confidence_score,
+               top_score, memory_ids, used_memory_ids, source, session_id,
+               source_agent, latency_ms, created_at, feedback_received_at
+        FROM recall_events
+        WHERE {' AND '.join(where_parts)}
+        ORDER BY created_at DESC
+        LIMIT ${len(params)}
+    """
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, *params)
+
+    events = []
+    for r in rows:
+        d = dict(r)
+        d["id"] = str(d["id"])
+        events.append(d)
+
+    # Summary stats
+    total = len(events)
+    conf_counts = {}
+    for e in events:
+        lvl = e.get("confidence_level") or "unknown"
+        conf_counts[lvl] = conf_counts.get(lvl, 0) + 1
+
+    with_feedback = sum(1 for e in events if e.get("feedback_received_at"))
+    avg_latency = sum(e.get("latency_ms") or 0 for e in events) / max(total, 1)
+
+    return JSONResponse(json.loads(json.dumps({
+        "events": events,
+        "summary": {
+            "total": total,
+            "confidence_distribution": conf_counts,
+            "with_feedback": with_feedback,
+            "feedback_rate": with_feedback / max(total, 1),
+            "avg_latency_ms": round(avg_latency, 1),
+        },
+    }, default=str)))
 
 
 async def api_remember(request):
@@ -632,6 +720,8 @@ def create_app() -> Starlette:
             Route("/api/clear_group", api_clear_group, methods=["POST"]),
             Route("/api/intent", api_intent, methods=["POST"]),
             Route("/api/mw_success", api_mw_success, methods=["POST"]),
+            Route("/api/recall_feedback", api_recall_feedback, methods=["POST"]),
+            Route("/api/recall_events", api_recall_events, methods=["GET"]),
             Route("/sse", endpoint=handle_sse),
             Mount("/messages/", app=sse.handle_post_message),
         ],

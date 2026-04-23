@@ -61,6 +61,30 @@ CREATE INDEX IF NOT EXISTS idx_mem_type ON mem_entries(memory_type);
 CREATE INDEX IF NOT EXISTS idx_mem_status ON mem_entries(status);
 CREATE INDEX IF NOT EXISTS idx_mem_score ON mem_entries(epistemic_score);
 CREATE INDEX IF NOT EXISTS idx_mem_search_vector ON mem_entries USING GIN(search_vector);
+
+-- Observability: log every recall event for analysis
+CREATE TABLE IF NOT EXISTS recall_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query TEXT NOT NULL,
+    query_length INTEGER NOT NULL,
+    group_id TEXT NOT NULL,
+    confidence_level TEXT,
+    confidence_score REAL,
+    top_score REAL,
+    memory_ids TEXT[],
+    source TEXT,
+    session_id TEXT,
+    source_agent TEXT,
+    used_memory_ids TEXT[],
+    feedback_received_at TIMESTAMPTZ,
+    latency_ms INTEGER,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_recall_events_created_at ON recall_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recall_events_group_id ON recall_events(group_id);
+CREATE INDEX IF NOT EXISTS idx_recall_events_confidence ON recall_events(confidence_level);
+CREATE INDEX IF NOT EXISTS idx_recall_events_session ON recall_events(session_id);
 """
 
 
@@ -71,6 +95,7 @@ async def get_pool() -> asyncpg.Pool:
         async with _pool.acquire() as conn:
             # Register the vector type so asyncpg can handle it
             await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            await conn.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
             await conn.execute(SCHEMA_SQL)
             # Add columns if upgrading from old schema
             for col_sql in [
@@ -420,6 +445,80 @@ async def _record_access(results: list[dict]):
                 """, growth, mid)
     except Exception as e:
         logger.warning("Failed to record access: %s", e)
+
+
+async def log_recall_event(
+    query: str,
+    group_id: str,
+    results: list[dict],
+    confidence: dict | None = None,
+    source: str = "unknown",
+    session_id: str | None = None,
+    source_agent: str | None = None,
+    latency_ms: int | None = None,
+) -> str | None:
+    """Log a recall event for observability.
+
+    Returns the event UUID so the caller can update it later with feedback
+    (which memories were actually used by the LLM).
+    """
+    try:
+        pool = await get_pool()
+        memory_ids = [r.get("id") for r in results if r.get("id")]
+        top_score = 0.0
+        if results:
+            top_score = float(
+                results[0].get("final_score", 0)
+                or results[0].get("blended_score", 0)
+                or results[0].get("rrf_score", 0)
+            )
+        conf = confidence or {}
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO recall_events
+                    (query, query_length, group_id, confidence_level, confidence_score,
+                     top_score, memory_ids, source, session_id, source_agent, latency_ms)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                RETURNING id
+                """,
+                query[:500],
+                len(query),
+                group_id,
+                conf.get("level"),
+                float(conf.get("score", 0) or 0),
+                top_score,
+                memory_ids,
+                source,
+                session_id,
+                source_agent,
+                latency_ms,
+            )
+            return str(row["id"]) if row else None
+    except Exception as e:
+        logger.warning("Failed to log recall event: %s", e)
+        return None
+
+
+async def record_recall_feedback(event_id: str, used_memory_ids: list[str]) -> bool:
+    """Record which memories from a recall were actually used by the LLM."""
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE recall_events
+                SET used_memory_ids = $1, feedback_received_at = NOW()
+                WHERE id = $2::uuid
+                """,
+                used_memory_ids,
+                event_id,
+            )
+            return result.startswith("UPDATE 1")
+    except Exception as e:
+        logger.warning("Failed to record recall feedback: %s", e)
+        return False
 
 
 async def _apply_suppression(results: list[dict]):

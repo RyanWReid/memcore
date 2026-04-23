@@ -161,3 +161,21 @@ Episodes are being recalled (16% of results include them) but don't lift coverag
 ### Key Insight
 
 Most real prompts (72%) are short conversational follow-ups ("now", "where are we") that need current-session context, not stored memories. The 28% coverage may be the natural ceiling for prompts where historical memory is relevant. The right metric is tracking trends over weeks, not one-shot backtests.
+
+### Query Enrichment A/B Test — Coverage 28% → 74%
+
+Solved the context gap with **buffer-based query enrichment**. Short prompts get enriched with the rolling episode buffer (last 6 exchanges) before recall.
+
+Tested on the same 50 held-out prompts:
+
+| Stage | Coverage | Notes |
+|-------|---------|-------|
+| Original baseline | 28% | Before episodes |
+| + Episode memories (+904) | 64% | Historical episodes backfilled |
+| + Buffer enrichment | **74%** | Short prompts get session context |
+
+**Net: +46pp coverage improvement** on real prompts by combining:
+1. Offline episode backfill from historical transcripts
+2. Live buffer-based query enrichment at recall time
+
+30% of prompts improved confidence level, 20% regressed (signal dilution on already-specific prompts), 50% unchanged. Future refinement: dual-query fallback — try baseline first, retry with enrichment only on weak confidence.

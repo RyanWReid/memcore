@@ -103,3 +103,61 @@ python3 -m memcore.benchmark.run_longmemeval_v4 --limit 50 --no-con
 ## Scoring
 
 The benchmark outputs `memcore_hypothesis_v4.jsonl` with `{"question_id", "hypothesis"}` per line. Score against the gold answers in the dataset using substring matching or LLM-as-judge for paraphrase tolerance.
+
+---
+
+## Production Backtest (April 2026)
+
+LongMemEval tests retrieval quality with fresh data. But does MemCore actually help in production? We tested 50 real prompts from actual Claude Code sessions against the live memory store.
+
+### The Gap: Synthetic vs Real
+
+| Metric | LongMemEval (synthetic) | Production (real) |
+|--------|------------------------|-------------------|
+| Coverage (moderate+ confidence) | 92% | **28%** |
+| Avg relevant memories per recall | ~4/5 | 1.3/5 |
+| Noise per recall | ~0.5/5 | 3.7/5 |
+| Would-help rate | ~90% | 30% |
+
+### Why
+
+LongMemEval ingests conversation data per question — it tests whether MemCore can *find* a fact that exists. Production tests whether the fact *was ever stored*. Most real prompts are short, contextual follow-ups ("why did we go backwards?", "hows our memory right now?") that need session-level context, not individual facts.
+
+### What's Missing (23 gaps identified)
+
+The LLM judge found that most missing context was **episode-level**: development status, session progress, strategic decisions, research findings — the narrative arc of work, not isolated facts.
+
+### The Fix: Episode Segmentation
+
+Built a live episode boundary detector that segments conversations in real-time using TextTiling with embeddings. At topic shifts, an LLM summarizes the completed episode and stores it as one rich memory. This creates the session-level context that individual fact extraction misses.
+
+### Production Evaluation Framework
+
+Three modes for ongoing measurement:
+
+```bash
+# Deep eval: 50 prompts with LLM relevance judge
+python -m memcore.benchmark.production_eval retro --limit 50
+
+# Quick health check: coverage + latency only
+python -m memcore.benchmark.production_eval health
+
+# Trend over time: compare weekly retro runs
+python -m memcore.benchmark.production_eval trend
+```
+
+### Episode Segmentation Results
+
+Processed 48 historical sessions → 305 episodes detected → 181 stored (write gate filtered duplicates). Memory store grew from 1,936 to 2,840.
+
+| Metric | Before Episodes | After Episodes |
+|--------|----------------|---------------|
+| Coverage (moderate+) | 28% | 28% |
+| Episode memories in results | 0% | 16% |
+| Total memories | 1,936 | 2,840 |
+
+Episodes are being recalled (16% of results include them) but don't lift coverage on the held-out eval set. The eval sessions (Apr 20-22) covered new topics not present in training sessions (Mar 23-Apr 19), creating a topic mismatch. The real value of episode segmentation is longitudinal — it shows up in the next session when asking about yesterday's work.
+
+### Key Insight
+
+Most real prompts (72%) are short conversational follow-ups ("now", "where are we") that need current-session context, not stored memories. The 28% coverage may be the natural ceiling for prompts where historical memory is relevant. The right metric is tracking trends over weeks, not one-shot backtests.

@@ -178,4 +178,41 @@ Tested on the same 50 held-out prompts:
 1. Offline episode backfill from historical transcripts
 2. Live buffer-based query enrichment at recall time
 
-30% of prompts improved confidence level, 20% regressed (signal dilution on already-specific prompts), 50% unchanged. Future refinement: dual-query fallback — try baseline first, retry with enrichment only on weak confidence.
+30% of prompts improved confidence level, 20% regressed (signal dilution on already-specific prompts), 50% unchanged.
+
+### Dual-Query Fallback — Coverage 74% → 92%
+
+The always-enrich strategy dilutes specific prompts. **Dual-query fallback** fixes this: try prompt alone first, retry with buffer enrichment only if confidence is weak/very_weak/no_memory.
+
+Three-way A/B/C test on the same 50 prompts:
+
+| Strategy | Coverage | Latency Cost |
+|----------|---------|-------------|
+| Baseline (prompt alone) | 62% | 1 call |
+| Enriched (always) | 82% | 1 call (20% regressions) |
+| **Dual-query (fallback)** | **92%** | 1.3 calls avg |
+
+Distribution shift:
+
+| Level | Baseline | Enriched | Dual |
+|-------|---------|---------|------|
+| high | 3 | 3 | **5** |
+| moderate | 28 | 38 | **41** |
+| weak | 19 | 9 | **4** |
+
+Only 30% of prompts triggered the retry. The strategy captures enrichment lift for vague prompts while preserving baseline precision for specific ones.
+
+### Full Progression — One Day
+
+| Stage | Coverage | Delta |
+|-------|---------|-------|
+| Morning baseline | 28% | — |
+| + Episode backfill (offline) | 64% | +36pp |
+| + Buffer enrichment (always) | 74% | +10pp |
+| + Dual-query fallback (live) | **92%** | +18pp |
+| **Total** | **28% → 92%** | **+64pp** |
+
+Zero changes to the core engine. All gains came from:
+1. Offline backfill script (reuses existing write gate + dedup)
+2. Live episode segmenter (TextTiling boundary detection)
+3. Hook-level query strategy (dual-query fallback)

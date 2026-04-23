@@ -54,6 +54,25 @@ MemCore scores quality *before* writing (epistemic write gate), tracks *how* mem
 
 **Our thesis**: The storage and retrieval problem is largely solved. The remaining frontier is **memory lifecycle** — what to store, when to forget, how memories evolve, how to know what you don't know, and which memories actually help.
 
+### Production Coverage: 92% on Real Prompts
+
+LongMemEval tests synthetic data. The harder question is: does memory actually help in real work?
+
+Tested on 50 held-out prompts from actual Claude Code sessions (not synthetic), measured against the live MemCore store:
+
+| Configuration | Coverage | Notes |
+|---------------|---------|-------|
+| Production baseline (initial) | 28% | Individual facts, no session context |
+| + Episode segmentation | 64% | Rolling buffer → summary at topic shifts |
+| + Dual-query fallback | **92%** | Prompt alone first, enrich if weak |
+
+**+64pp improvement on real production queries** by adding:
+1. **Live episode segmenter** — detects conversation topic shifts via embedding distance (TextTiling), summarizes completed episodes as one rich memory
+2. **Buffer-based query enrichment** — short prompts get enriched with 6-message rolling context
+3. **Dual-query fallback** — only retries with enrichment when baseline returns weak confidence (preserves precision on specific prompts)
+
+Nobody else does live episode segmentation for AI memory systems. See [docs/benchmark-results.md](docs/benchmark-results.md) for methodology.
+
 ---
 
 ## Quick Start

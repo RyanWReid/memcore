@@ -73,6 +73,18 @@ Tested on 50 held-out prompts from actual Claude Code sessions (not synthetic), 
 
 Nobody else does live episode segmentation for AI memory systems. See [docs/benchmark-results.md](docs/benchmark-results.md) for methodology.
 
+### Observability — Measuring What Actually Works
+
+MemCore logs every recall to a `recall_events` table and measures usage via a feedback loop. This turns "we hope the bio-features work" into measurable data:
+
+- **`POST /api/recall`** — logs event with query, confidence, memory IDs, latency, source
+- **`POST /api/recall_feedback`** — records which memories the LLM actually used (posted by Stop hook)
+- **`GET /api/recall_events`** — query events with summary stats (confidence distribution, feedback rate, latency)
+
+The Stop hook (`memcore-feedback.py`) judges each recent recall against the assistant's response via LLM, identifies which memories were actually used, and posts feedback. This populates the MW (Memory Worth) signal with ground-truth usefulness data.
+
+Together with the per-type decay (Ebbinghaus), stability growth (Bjork), and reconsolidation, MemCore is the first AI memory system instrumented to prove its bio-inspired features actually improve retrieval quality over time.
+
 ---
 
 ## Quick Start

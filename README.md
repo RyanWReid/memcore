@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/LongMemEval-90%25_QA-4CAF50?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/LongMemEval-92%25_QA-4CAF50?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Bio--Inspired-12_Principles-9B59B6?style=for-the-badge" />
   <img src="https://img.shields.io/badge/MCP_Native-Multi--Agent-cc785c?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/PostgreSQL-pgvector-4169E1?style=for-the-badge&logo=postgresql&logoColor=white" />
@@ -41,7 +41,7 @@ MemCore scores quality *before* writing (epistemic write gate), tracks *how* mem
 
 ### Where We Stand (April 2026)
 
-**90% end-to-end QA accuracy** on LongMemEval — the LLM must generate the correct answer, not just find the right document.
+**92% end-to-end QA accuracy** on LongMemEval — the LLM must generate the correct answer, not just find the right document. [Full results](docs/benchmark-results.md).
 
 | System | LongMemEval | What It Actually Measures |
 |--------|-------------|--------------------------|
@@ -49,7 +49,7 @@ MemCore scores quality *before* writing (epistemic write gate), tracks *how* mem
 | Chronos | 95.6% QA | Best temporal reasoning (SVO event calendar) |
 | OMEGA | 95.4% QA | Best local-only system (SQLite + forgetting) |
 | Mastra OM | 94.87% QA | Best no-retrieval approach (observation compression) |
-| **MemCore** | **~90% QA** | **Only system with full bio-inspired lifecycle** |
+| **MemCore** | **92% QA** | **Only system with full bio-inspired lifecycle** |
 | Mem0 | ~49% QA | Cloud-hosted vector search |
 
 **Our thesis**: The storage and retrieval problem is largely solved. The remaining frontier is **memory lifecycle** — what to store, when to forget, how memories evolve, how to know what you don't know, and which memories actually help.

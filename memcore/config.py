@@ -35,6 +35,12 @@ FACT_EXTRACTION_ENABLED = os.getenv("FACT_EXTRACTION_ENABLED", "true").lower() =
 # Graphiti recall timeout (fast path — don't block recall for slow graph search)
 GRAPHITI_RECALL_TIMEOUT = float(os.getenv("GRAPHITI_RECALL_TIMEOUT", "10.0"))
 
+# Fuzzy-trace dual storage — gist embedding alongside verbatim content embedding.
+# Gist captures meaning/category; verbatim captures detail. RRF-fuses both at search time.
+# Based on Brainerd & Reyna 1990 (Fuzzy-Trace Theory).
+FUZZY_TRACE_ENABLED = os.getenv("FUZZY_TRACE_ENABLED", "true").lower() == "true"
+GIST_MODEL = os.getenv("GIST_MODEL", "deepseek-chat")
+
 # Reconsolidation
 RECONSOLIDATION_ENABLED = os.getenv("RECONSOLIDATION_ENABLED", "true").lower() == "true"
 RECONSOLIDATION_MIN_ACCESS = int(os.getenv("RECONSOLIDATION_MIN_ACCESS", "3"))

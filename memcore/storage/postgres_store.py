@@ -116,6 +116,9 @@ async def get_pool() -> asyncpg.Pool:
                 "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS mw_total INTEGER NOT NULL DEFAULT 0",
                 # v6: retrieval-induced suppression
                 "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS suppression_count INTEGER NOT NULL DEFAULT 0",
+                # v7: fuzzy-trace dual storage — gist alongside verbatim
+                "ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS gist TEXT",
+                f"ALTER TABLE mem_entries ADD COLUMN IF NOT EXISTS gist_embedding vector({EMBEDDING_DIM})",
             ]:
                 try:
                     await conn.execute(col_sql)
@@ -178,12 +181,31 @@ def _embedding_to_pgvector(embedding: list[float]) -> str:
 # --- Storage ---
 
 async def store(entry: MemEntry) -> dict:
-    """Store a MemEntry in PostgreSQL with embedding."""
+    """Store a MemEntry in PostgreSQL with verbatim + gist embeddings.
+
+    When FUZZY_TRACE_ENABLED, an LLM-generated one-sentence gist is stored
+    in parallel with the verbatim content. Each gets its own embedding so
+    search can fuse a gist-match leg (better for conceptual queries) with
+    a verbatim-match leg (better for detail queries).
+    """
     pool = await get_pool()
 
-    # Generate embedding for the content
-    embedding = await generate_embedding(entry.content)
+    # Generate verbatim embedding and (optionally) gist + gist embedding in parallel.
+    from memcore.config import FUZZY_TRACE_ENABLED
+    if FUZZY_TRACE_ENABLED:
+        from memcore.lifecycle.gist import generate_gist
+        gist = await generate_gist(entry.content)
+        emb_task = asyncio.create_task(generate_embedding(entry.content))
+        gist_emb_task = asyncio.create_task(generate_embedding(gist)) if gist else None
+        embedding = await emb_task
+        gist_embedding = await gist_emb_task if gist_emb_task is not None else None
+    else:
+        gist = None
+        embedding = await generate_embedding(entry.content)
+        gist_embedding = None
+
     embedding_str = _embedding_to_pgvector(embedding) if embedding else None
+    gist_embedding_str = _embedding_to_pgvector(gist_embedding) if gist_embedding else None
 
     try:
         async with pool.acquire() as conn:
@@ -193,13 +215,16 @@ async def store(entry: MemEntry) -> dict:
                     (id, content, memory_type, layer, group_id, epistemic_score,
                      quality_checks, epistemic_scores, temporal,
                      source_agent, session_id, status, gate_passed, gate_reason,
-                     embedding)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::vector)
+                     embedding, gist, gist_embedding)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                        $15::vector, $16, $17::vector)
                 ON CONFLICT (id) DO UPDATE SET
                     content = EXCLUDED.content,
                     epistemic_score = EXCLUDED.epistemic_score,
                     status = EXCLUDED.status,
                     embedding = EXCLUDED.embedding,
+                    gist = EXCLUDED.gist,
+                    gist_embedding = EXCLUDED.gist_embedding,
                     updated_at = NOW()
                 """,
                 entry.id,
@@ -217,8 +242,13 @@ async def store(entry: MemEntry) -> dict:
                 entry.gate_passed,
                 entry.gate_reason,
                 embedding_str,
+                gist,
+                gist_embedding_str,
             )
-        logger.info("PostgreSQL stored entry %s (embedding: %s)", entry.id[:8], "yes" if embedding else "no")
+        logger.info(
+            "PostgreSQL stored entry %s (emb=%s gist=%s)",
+            entry.id[:8], "y" if embedding else "n", "y" if gist else "n",
+        )
         return {"status": "stored", "layer": "postgres", "id": entry.id}
     except Exception as e:
         logger.error("PostgreSQL store failed: %s", e)
@@ -619,6 +649,11 @@ async def _hybrid_search(
 
     embedding_str = _embedding_to_pgvector(query_embedding)
 
+    # Three-leg RRF: full-text + verbatim-vector + gist-vector.
+    # The gist leg helps conceptual queries match memories whose verbatim
+    # embedding is dominated by specific identifiers (fuzzy-trace theory).
+    # A missing gist_embedding just means that memory doesn't contribute a
+    # gist-rank, not that it's excluded from search.
     sql = f"""
     WITH fts AS (
         SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
@@ -642,23 +677,36 @@ async def _hybrid_search(
         ORDER BY embedding <=> $3::vector
         LIMIT 30
     ),
+    vec_gist AS (
+        SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
+               access_count, last_accessed_at, stability, reconsolidation_count,
+               ROW_NUMBER() OVER (ORDER BY gist_embedding <=> $3::vector) as rank_pos
+        FROM mem_entries
+        WHERE status = 'active' AND group_id = $2
+          AND gist_embedding IS NOT NULL
+          {type_filter}
+        ORDER BY gist_embedding <=> $3::vector
+        LIMIT 30
+    ),
     combined AS (
         SELECT
-            COALESCE(fts.id, vec.id) as id,
-            COALESCE(fts.content, vec.content) as content,
-            COALESCE(fts.memory_type, vec.memory_type) as memory_type,
-            COALESCE(fts.epistemic_score, vec.epistemic_score) as epistemic_score,
-            COALESCE(fts.created_at, vec.created_at) as created_at,
-            COALESCE(fts.updated_at, vec.updated_at) as updated_at,
-            COALESCE(fts.access_count, vec.access_count) as access_count,
-            COALESCE(fts.last_accessed_at, vec.last_accessed_at) as last_accessed_at,
-            COALESCE(fts.stability, vec.stability) as stability,
-            COALESCE(fts.reconsolidation_count, vec.reconsolidation_count) as reconsolidation_count,
-            -- RRF score: 1/(K+rank) for each leg, sum both
+            COALESCE(fts.id, vec.id, vec_gist.id) as id,
+            COALESCE(fts.content, vec.content, vec_gist.content) as content,
+            COALESCE(fts.memory_type, vec.memory_type, vec_gist.memory_type) as memory_type,
+            COALESCE(fts.epistemic_score, vec.epistemic_score, vec_gist.epistemic_score) as epistemic_score,
+            COALESCE(fts.created_at, vec.created_at, vec_gist.created_at) as created_at,
+            COALESCE(fts.updated_at, vec.updated_at, vec_gist.updated_at) as updated_at,
+            COALESCE(fts.access_count, vec.access_count, vec_gist.access_count) as access_count,
+            COALESCE(fts.last_accessed_at, vec.last_accessed_at, vec_gist.last_accessed_at) as last_accessed_at,
+            COALESCE(fts.stability, vec.stability, vec_gist.stability) as stability,
+            COALESCE(fts.reconsolidation_count, vec.reconsolidation_count, vec_gist.reconsolidation_count) as reconsolidation_count,
+            -- RRF score: 1/(K+rank) for each leg, summed across fts, verbatim vec, gist vec
             COALESCE(1.0 / ({K} + fts.rank_pos), 0) +
-            COALESCE(1.0 / ({K} + vec.rank_pos), 0) as rrf_score
+            COALESCE(1.0 / ({K} + vec.rank_pos), 0) +
+            COALESCE(1.0 / ({K} + vec_gist.rank_pos), 0) as rrf_score
         FROM fts
         FULL OUTER JOIN vec ON fts.id = vec.id
+        FULL OUTER JOIN vec_gist ON COALESCE(fts.id, vec.id) = vec_gist.id
     )
     SELECT id, content, memory_type, epistemic_score, created_at, updated_at,
            access_count, last_accessed_at, stability, reconsolidation_count, rrf_score
